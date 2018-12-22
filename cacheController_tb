@@ -32,20 +32,23 @@ module cacheController_tb();
 			
 			//write hit
 			
-			#5 dat_cpu_i=1;req_cpu_i=1; adr_cpu_i=1; we_cpu_i=1; cc_hit_i=1;cc_valid_i=1;
+			#10 dat_cpu_i=1;req_cpu_i=1; adr_cpu_i=1; we_cpu_i=1; cc_hit_i=1;cc_valid_i=1;
 			repeat(2) @(posedge clk);
 			
 			//read miss with free cache
 			
-			#5 dat_cpu_i=1;req_cpu_i=1; adr_cpu_i=1; we_cpu_i=0; cc_hit_i=0;cc_valid_i=0;free=1;ack_mem_i=1; dat_mem_i=1;
+			#10 dat_cpu_i=1;req_cpu_i=1; adr_cpu_i=1; we_cpu_i=0; cc_hit_i=0;cc_valid_i=0;free=1;ack_mem_i=1; dat_mem_i=1;
 			repeat(2) @(posedge clk)
 			
 			//write miss with free cache
 			
-			#5 dat_cpu_i=1;req_cpu_i=1; adr_cpu_i=1; we_cpu_i=1; cc_hit_i=0;cc_valid_i=0;free=1; ack_mem_i=1;dat_mem_i=1;
+			#10 dat_cpu_i=1;req_cpu_i=1; adr_cpu_i=1; we_cpu_i=1; cc_hit_i=0;cc_valid_i=0;free=1; ack_mem_i=1;dat_mem_i=1;
 			repeat(2) @(posedge clk)
 			
 			//read miss with no free cache
+			
+			#10 dat_cpu_i=1;req_cpu_i=1; adr_cpu_i=1; we_cpu_i=0; cc_hit_i=0;cc_valid_i=0;free=0; ack_mem_i=1;dat_mem_i=1;
+			repeat(2) @(posedge clk)
 			
 			//write miss with no free cache
 			
