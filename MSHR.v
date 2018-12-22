@@ -24,18 +24,36 @@ module MSHR(
 
     input clk,
     input rst,
-    input cache_line_i,
-    input mem_line_i,
+    input cache_adr_i,
+    input cache_dat_i,
+    input mem_adr_i,
+    input mem_dat_i,
     
-    output reg cache_line_o,
-    output reg mem_line_o
+    output cache_adr_o,
+    output cache_dat_o,
+    output mem_adr_o,
+    output mem_dat_o
 
     );
     
-    wire inner_slot_1;
-    wire inner_slot_2;
+    reg adr_slot_1, dat_slot_1;
+    reg adr_slot_2, dat_slot_2;
     
-    always@(posedge clk)
+    always@(*)
+    begin
+        adr_slot_1 = cache_adr_i;
+        dat_slot_1 = cache_dat_i;
+        adr_slot_2 = mem_adr_i;
+        dat_slot_2 = mem_dat_i;
+    end
+    
+    assign cache_adr_o = adr_slot_1;
+    assign cache_dat_o = dat_slot_1;
+    assign mem_adr_o = adr_slot_2;
+    assign mem_dat_o = dat_slot_2;
+    
+    
+    /*always@(posedge clk)
     begin
         if(rst==1'b1)
         begin
@@ -47,9 +65,6 @@ module MSHR(
             cache_line_o <= inner_slot_2;
             mem_line_o <= inner_slot_1;
         end
-    end
-    
-    assign inner_slot_1 = cache_line_i;
-    assign inner_slot_2 = mem_line_i;
-    
+    end*/
+        
 endmodule
