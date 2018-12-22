@@ -157,7 +157,7 @@ module cacheController(
                         
                             // SAVE LRU IN MSHR
                             //---------------------//
-                            adr_mshr_deload_o = cc_adr_o;
+                            adr_mshr_deload_o = cc_adr_i;
                             dat_mshr_deload_o = cc_dat_i;
                             
                             // REQUEST TO MEMORY

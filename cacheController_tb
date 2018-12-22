@@ -19,9 +19,9 @@ module cacheController_tb();
 		
 		initial
 		begin
-			$monitor("clk%d %d%d%d%d->%d%d%d%d%d%d%d%d%d%d",clk, req_cpu_i, adr_cpu_i,
+			$monitor("clk%d %d%d%d%d->%d%d%d%d%d%d%d%d%d%d%d%d",clk, req_cpu_i, adr_cpu_i,
 			 dat_cpu_i, we_cpu_i, cc_adr_o, cc_dat_o, cc_we_o, dat_cpu_o, ack_cpu_o, 
-			 err_cpu_o, cyc_m2s, we_m2s, adr_m2s,dat_m2s);
+			 err_cpu_o, cyc_m2s, we_m2s, adr_m2s,dat_m2s,adr_mshr_deload_o,dat_mshr_deload_o );
 			 
 			clk=0;
 			
@@ -47,7 +47,7 @@ module cacheController_tb();
 			
 			//read miss with no free cache
 			
-			#10 dat_cpu_i=1;req_cpu_i=1; adr_cpu_i=1; we_cpu_i=0; cc_hit_i=0;cc_valid_i=0;free=0; ack_mem_i=1;dat_mem_i=1;
+			#10 dat_cpu_i=1;req_cpu_i=1; adr_cpu_i=1; we_cpu_i=0; cc_hit_i=0;cc_valid_i=0;free=0; ack_mem_i=1;dat_mem_i=1;lru_adr=1;adr_mshr_load_i=1; dat_mshr_load_i=1;
 			repeat(2) @(posedge clk)
 			
 			//write miss with no free cache
