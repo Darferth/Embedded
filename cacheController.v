@@ -78,14 +78,19 @@ module cacheController(
     
     // Inner signals CACHE (TEST)
     input lru,
-    input free
+    input free,
     
+    output [1:0] state_test,
+    output [1:0] state_next_test
     );
     
     reg[1:0] ss, ss_next;
     reg lru_adr;
       
     localparam [1:0] IDLE = 2'b00, READ_MEM = 2'b01, WRITE_MEM = 2'b10, REPLACE = 2'b11; 
+    
+    assign state_test = ss;
+    assign state_next_test = ss_next;
     
     always@(posedge clk)
     begin
@@ -120,7 +125,7 @@ module cacheController(
                     if(cc_hit_i && cc_valid_i) // READ HIT and WRITE HIT
                     begin
                         ack_cpu_o = 1'b1;
-                        dat_cpu_o = we_cpu_i ? 1'bx : dat_cpu_i;
+                        dat_cpu_o = we_cpu_i ? 1'bx : cc_dat_i;
                     end
                     
                     if(~cc_hit_i || ~cc_valid_i) //READ MISS and WRITE MISS
@@ -157,7 +162,7 @@ module cacheController(
                         
                             // SAVE LRU IN MSHR
                             //---------------------//
-                            adr_mshr_deload_o = cc_adr_i;
+                            adr_mshr_deload_o = cc_adr_o;
                             dat_mshr_deload_o = cc_dat_i;
                             
                             // REQUEST TO MEMORY
@@ -186,6 +191,8 @@ module cacheController(
                     //---------------------//
                     dat_cpu_o = dat_mem_i;
                     ack_cpu_o = 1'b1;
+                    
+                    ss_next = IDLE;
                 end
             end
             WRITE_MEM:
@@ -201,6 +208,8 @@ module cacheController(
                     // GEN. OUTPUT TO CPU
                     //---------------------// 
                     ack_cpu_o = 1'b1;
+                    
+                    ss_next = IDLE;
                 end
             end
             REPLACE:
@@ -230,6 +239,8 @@ module cacheController(
                     //---------------------//
                     dat_cpu_o = we_cpu_i ? dat_mem_i : 1'bx;
                     ack_cpu_o = 1'b1;
+                    
+                    ss_next = IDLE;
                 end
             end
         endcase
@@ -241,10 +252,10 @@ module cacheController(
                 .cache_dat_i(dat_mshr_deload_o),
                 .mem_adr_i(adr_mshr_load_o),
                 .mem_dat_i(dat_mshr_load_o),
-                .cache_adr_i(adr_mshr_deload_i), 
-                .cache_dat_i(dat_mshr_deload_i),
-                .mem_adr_i(adr_mshr_load_i),
-                .mem_dat_i(dat_mshr_load_i)
+                .cache_adr_o(adr_mshr_deload_i), 
+                .cache_dat_o(dat_mshr_deload_i),
+                .mem_adr_o(adr_mshr_load_i),
+                .mem_dat_o(dat_mshr_load_i)
                 );
     
 endmodule
