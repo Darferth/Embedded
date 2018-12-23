@@ -68,6 +68,7 @@ module cacheController_tb();
         repeat(5) @(posedge clk);
         rst<=0;
         repeat(5) @(posedge clk);
+        */
         // WRITE MISS
         /*
         #1
@@ -129,7 +130,53 @@ module cacheController_tb();
         req_cpu_i = 1'b0;
         */
         
+        //READ MISS REPLACE
+        
+        /*
+        #1
+        req_cpu_i = 1'b1;
+        adr_cpu_i = 1'b0;
+        we_cpu_i = 1'b0;
+        #2
+        cc_hit_i = 1'b0;
+        cc_valid_i = 1'b0;
+        free=1'b0;
+        lru_adr=1'b1;
+        #2
+        adr_mshr_deload_i=1'b1;
+        dat_mshr_deload_i=1'b1;
+        dat_mem_i=1'b1;
+        adr_mshr_load_i=1'b1;
+        dat_mshr_load_i=1'b1;
         repeat(20) @(posedge clk);
+        req_cpu_i = 1'b0;
+        
+        */
+        
+        //WRITE MISS REPLACE
+        
+        /*
+        
+        #1
+        req_cpu_i = 1'b1;
+        adr_cpu_i = 1'b0;
+        we_cpu_i = 1'b1;
+        dat_cpu_i = 1'b0;
+        #2
+        cc_hit_i = 1'b0;
+        cc_valid_i = 1'b0;
+        free=1'b0;
+        lru_adr=1'b1;
+        #2
+        adr_mshr_deload_i=1'b1;
+        dat_mshr_deload_i=1'b1;
+        dat_mem_i=1'b1;
+        adr_mshr_load_i=1'b1;
+        dat_mshr_load_i=1'b1;
+        repeat(20) @(posedge clk);
+        req_cpu_i = 1'b0;
+        
+        
         $finish;
         
     end
