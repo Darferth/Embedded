@@ -30,9 +30,9 @@ module mux2to1#(parameter DATA_WIDTH=32)(
     
     always@(*)
     begin
-        if(sel1==1'b1 && sel2==1'b0)
+        if(sel1==1'b1)
             out = a;
-        else if(sel1==1'b0 && sel2==1'b1)
+        else if(sel2==1'b1)
             out = b;
         else
             out = {DATA_WIDTH{1'bx}};

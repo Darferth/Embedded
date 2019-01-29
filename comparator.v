@@ -19,7 +19,7 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-/*
+
 module comp_tb();
 
 reg [7:0]a,b;
@@ -35,13 +35,16 @@ begin
     a = 8'b01101111;
     b = 8'b01101111;
     #10;
+    a = 8'bxxxxxxxx;
+    b = 8'bxxxxxxxx;
+    #10;
     $finish;
 end
 
 endmodule
-*/
 
-module comparator #(parameter LENGTH = 22)(a,b,eq);
+
+module comparator #(parameter LENGTH = 8)(a,b,eq);
 
     input [LENGTH-1:0] a;
     input [LENGTH-1:0] b;
@@ -62,6 +65,6 @@ endmodule
 
 module oneBit_comparator(input a, input b, output wire eq);
 
-assign eq = 1 ? a==b : 0;
+assign eq = (a==b) ? 1 : (a===b) ? 0 : 0;
 
 endmodule

@@ -19,78 +19,75 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
-module cacheController(
+module cacheController
+#(  
+    parameter ADR_LENGTH = 32,
+    parameter DATA_LENGTH = 32
+)
+(
 
     // CPU
     //---------------------//
     // Input
     input req_cpu_i,
-    input adr_cpu_i,
-    input dat_cpu_i,
+    input [ADR_LENGTH-1:0] adr_cpu_i,
+    input [DATA_LENGTH-1:0] dat_cpu_i,
     input we_cpu_i,
     
     // Output
-    output reg dat_cpu_o,
+    output reg [DATA_LENGTH-1:0] dat_cpu_o,
     output reg ack_cpu_o,
     output reg err_cpu_o,
     
     // MEM
     //---------------------//
     // Input
-    input dat_mem_i,
+    input [DATA_LENGTH-1:0] dat_mem_i,
     input ack_mem_i,
     
     // Output
     output reg cyc_m2s,
     output reg we_m2s,
-    output reg adr_m2s,
-    output reg dat_m2s,
+    output reg [ADR_LENGTH-1:0] adr_m2s,
+    output reg [DATA_LENGTH-1:0] dat_m2s,
     
     // CACHE
     //---------------------//
     // Input
     input cc_hit_i,
-    input cc_dat_i,
-    input cc_valid_i,
+    input [DATA_LENGTH-1:0] cc_dat_i,
+    input cc_free_i,
     
     // Output
     output reg cc_we_o,
-    output reg cc_adr_o,
-    output reg cc_dat_o,
+    output reg [ADR_LENGTH-1:0] cc_adr_o,
+    output reg [DATA_LENGTH-1:0] cc_dat_o,
+    output reg cc_deload_o,
+    output reg cc_req_o,
     
     // MSHR
     //---------------------//
     // Input
-    input adr_mshr_load_i,
-    input dat_mshr_load_i,
-    input adr_mshr_deload_i,
-    input dat_mshr_deload_i,
+    input [ADR_LENGTH-1:0] adr_mshr_load_i,
+    input [DATA_LENGTH-1:0] dat_mshr_load_i,
+    input [ADR_LENGTH-1:0] adr_mshr_deload_i,
+    input [DATA_LENGTH-1:0] dat_mshr_deload_i,
     
     // Output
-    output reg adr_mshr_load_o,
-    output reg dat_mshr_load_o,
-    output reg adr_mshr_deload_o,
-    output reg dat_mshr_deload_o,
+    output reg [ADR_LENGTH-1:0] adr_mshr_load_o,
+    output reg [DATA_LENGTH-1:0] dat_mshr_load_o,
+    output reg [ADR_LENGTH-1:0] adr_mshr_deload_o,
+    output reg [DATA_LENGTH-1:0] dat_mshr_deload_o,
     
     // GP signals
     input clk,
-    input rst,
+    input rst
     
-    // Inner signals CACHE (TEST)
-    input lru,
-    input free,
-    
-    output [1:0] state_test,
-    output [1:0] state_next_test
     );
     
     reg[1:0] ss, ss_next;
-    reg lru_adr;
       
     localparam [1:0] IDLE = 2'b00, READ_MEM = 2'b01, WRITE_MEM = 2'b10, REPLACE = 2'b11; 
-    
-    assign state_test = ss;
-    assign state_next_test = ss_next;
     
     always@(posedge clk)
     begin
@@ -106,8 +103,38 @@ module cacheController(
     
     always@(*)
     begin
-        //latch
+    
         ss_next = ss;
+        
+        // Reset controls to CPU
+        //---------------------//
+        ack_cpu_o = 1'b0;
+        dat_cpu_o = {DATA_LENGTH{1'bx}};
+        err_cpu_o = 1'bx;
+        
+        // Reset controls to MEM
+        //---------------------//
+        cyc_m2s = 1'b0;
+        adr_m2s = {ADR_LENGTH{1'bx}};
+        dat_m2s = {DATA_LENGTH{1'bx}};
+        we_m2s = 1'bx;
+        
+        // Reset controls to CACHE
+        //---------------------//
+        cc_adr_o = {ADR_LENGTH{1'bx}};
+        cc_dat_o = {DATA_LENGTH{1'bx}};
+        cc_we_o = 1'bx;
+        cc_deload_o =1'bx;
+        cc_req_o = 1'bx;
+        
+        // Reset controls to MSHR
+        //---------------------//
+        /*
+        adr_mshr_load_o = 1'b0;
+        dat_mshr_load_o = 1'b0;
+        adr_mshr_deload_o = 1'b0;
+        dat_mshr_deload_o = 1'b0;
+        */
         
         case(ss)
             IDLE:
@@ -118,20 +145,30 @@ module cacheController(
                 
                     // CACHE LOCKUP
                     //---------------------//
+                    cc_req_o = 1'b1;
                     cc_adr_o = adr_cpu_i;
-                    cc_dat_o = we_cpu_i ? dat_cpu_i : 1'bx;
+                    cc_dat_o = we_cpu_i ? dat_cpu_i : 32'bx;
                     cc_we_o = we_cpu_i;
+                    
+                    // da valutare l'aggiunta di un ack proveniente dalla cache 
+                    // per indicare la fine del lookup
+                    // if(end_cache_lookup) ...
+                    
                                         
-                    if(cc_hit_i && cc_valid_i) // READ HIT and WRITE HIT
+                    if(cc_hit_i == 1'b1) // READ HIT and WRITE HIT
                     begin
                         ack_cpu_o = 1'b1;
-                        dat_cpu_o = we_cpu_i ? 1'bx : cc_dat_i;
+                        dat_cpu_o = we_cpu_i ? 1'bx : cc_dat_i; // potremmo restituire anche se è una write
+                        
+                        // reset cache lookup req
+                        /*cc_adr_o = 1'bx;
+                        cc_dat_o = 1'bx;
+                        cc_we_o = 1'bx;*/
                     end
-                    
-                    if(~cc_hit_i || ~cc_valid_i) //READ MISS and WRITE MISS
+                    else if(cc_hit_i == 1'b0) //READ MISS and WRITE MISS
                     begin
                     
-                        if(free) // AVAILABLE SPACE IN CACHE
+                        if(cc_free_i) // AVAILABLE SPACE IN CACHE
                         begin
                         
                             // READ/WRITE IN MEMORY
@@ -156,26 +193,35 @@ module cacheController(
                               
                             // CACHE LOOKUP (LRU)
                             //---------------------//
-                            cc_adr_o = lru_adr;
+                            cc_req_o = 1'b0;
+                            cc_deload_o = 1'b1;
+                            cc_adr_o = adr_cpu_i; //adr_cpu_i
                             cc_dat_o = 1'bx;
                             cc_we_o = 1'b0;
+                            cc_req_o = 1'b1;
                         
                             // SAVE LRU IN MSHR
                             //---------------------//
-                            adr_mshr_deload_o = cc_adr_o;
+                            //if(end_cache_lookup)
+                            //...
+                            adr_mshr_deload_o = adr_cpu_i;
                             dat_mshr_deload_o = cc_dat_i;
                             
                             // REQUEST TO MEMORY
                             //---------------------//   
-                            cyc_m2s = 1'b1;
                             adr_m2s = adr_cpu_i;
                             we_m2s = we_cpu_i;
                             dat_m2s = we_cpu_i ? dat_cpu_i : 1'bx;
+                            cyc_m2s = 1'b1;
+                            
                             ss_next = REPLACE;  
                             
                         end
                     end
                 end
+                
+                //reset output signals ?
+                
             end
             READ_MEM:
             begin
@@ -186,6 +232,7 @@ module cacheController(
                     cc_adr_o = adr_cpu_i;
                     cc_dat_o = dat_mem_i;
                     cc_we_o = 1'b1; 
+                    cc_req_o = 1'b1;
                     
                     // GEN. OUTPUT TO CPU
                     //---------------------//
@@ -193,6 +240,13 @@ module cacheController(
                     ack_cpu_o = 1'b1;
                     
                     ss_next = IDLE;
+                    
+                    //reset memory lookup req
+                    /*
+                    cyc_m2s = 1'bx;
+                    we_m2s = 1'bx;
+                    adr_m2s = 1'bx;
+                    */
                 end
             end
             WRITE_MEM:
@@ -204,12 +258,21 @@ module cacheController(
                     cc_adr_o = adr_cpu_i;
                     cc_dat_o = dat_mem_i;
                     cc_we_o = 1'b1;
+                    cc_req_o = 1'b1;
                     
                     // GEN. OUTPUT TO CPU
                     //---------------------// 
                     ack_cpu_o = 1'b1;
                     
                     ss_next = IDLE;
+                    
+                    //reset memory lookup req
+                    /*
+                    cyc_m2s = 1'bx;
+                    we_m2s = 1'bx;
+                    adr_m2s = 1'bx;
+                    dat_m2s = 1'bx;
+                    */
                 end
             end
             REPLACE:
@@ -219,10 +282,10 @@ module cacheController(
                 
                     // STORE LRU IN MEMORY
                     //---------------------//
-                    cyc_m2s = 1'b1;
                     adr_m2s = adr_mshr_deload_i;
                     dat_m2s = dat_mshr_deload_i;
                     we_m2s = 1'b1;
+                    cyc_m2s = 1'b1;
                     
                     // LOAD IN MSHR LOAD LINE
                     //---------------------//
@@ -234,10 +297,11 @@ module cacheController(
                     cc_adr_o = adr_mshr_load_i;
                     cc_dat_o = dat_mshr_load_i;
                     cc_we_o = 1'b1;
+                    cc_req_o = 1'b1;
                     
                     // GEN. OUTPUT TO CPU
                     //---------------------//
-                    dat_cpu_o = we_cpu_i ? dat_mem_i : 1'bx;
+                    dat_cpu_o = we_cpu_i ? 1'bx : dat_mem_i;
                     ack_cpu_o = 1'b1;
                     
                     ss_next = IDLE;
@@ -257,5 +321,16 @@ module cacheController(
                 .mem_adr_o(adr_mshr_load_i),
                 .mem_dat_o(dat_mshr_load_i)
                 );
-    
+     
+     /*dcache data_cache (.rst(rst), 
+                        .cc_req_i(cc_req_o), 
+                        .cc_we_i(cc_we_o),
+                        .cc_dat_i(cc_dat_o),
+                        .cc_adr_i(cc_adr_o),
+                        .cc_deload_i(cc_deload_o),
+                        .cache_dat_o(cc_dat_i),
+                        .cache_hit_o(cc_hit_i),
+                        .cache_free_o(cc_free_i)
+                        );
+    */
 endmodule
