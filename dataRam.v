@@ -3,7 +3,7 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 26.01.2019 15:21:05
+// Create Date: 02/01/2019 12:24:28 PM
 // Design Name: 
 // Module Name: dataRam
 // Project Name: 
@@ -21,32 +21,31 @@
 
 
 module dataRam
- #(
-    parameter INDEX_LENGTH = 7,
-    parameter DATA_LENGTH = 32,
-    parameter CACHE_LINES = 32,
-    parameter RESET_VALUE = 32'bx
- )
- (   
-    input [INDEX_LENGTH-1:0] index_i,
-    input [DATA_LENGTH-1:0] data_i,
-    input we_i,
-    input deload_i,
+#(
+    parameter DATA_WIDTH = 32,
+    parameter CACHE_LINES = 128,
+    parameter WORD_NUM = 4,
+    parameter INDEX_WIDTH = 7,
+    parameter WORD_OFFSET_WIDTH = 2
+)
+(
     
-    output reg [DATA_LENGTH-1:0] data_o
-  );
-  
-    reg [DATA_LENGTH-1:0] dataRam [CACHE_LINES-1:0];
+    input clk,
+    input [INDEX_WIDTH-1:0] index,
+    input [WORD_OFFSET_WIDTH-1:0] offset,
+    input [DATA_WIDTH-1:0] data_in,
+    input we,
     
-    always@(*)
-    begin
-        if(we_i)
-            dataRam[index_i] = data_i;      
-       
-        data_o = dataRam[index_i];
-        
-        if(deload_i)
-            dataRam[index_i] = RESET_VALUE;
-    end
-  
+    output reg [DATA_WIDTH-1:0] data_out
+);
+
+reg [DATA_WIDTH-1:0][WORD_NUM-1:0] mem [CACHE_LINES-1:0];
+
+always@(posedge clk)
+begin
+    data_out <= mem[index][offset];
+    
+    if(we) mem[index][offset] = data_in;
+end
+
 endmodule

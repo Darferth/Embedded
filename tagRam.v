@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 26.01.2019 12:21:36
+// Create Date: 02/01/2019 12:24:28 PM
 // Design Name: 
-// Module Name: mux2to1
+// Module Name: dataRam
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -21,40 +21,29 @@
 
 
 module tagRam
-
 #(
-    parameter INDEX_LENGTH = 7,
-    parameter TAG_LENGTH = 22,
-    parameter CACHE_LINES = 32,
-    parameter RESET_VALUE = 22'bx
+    parameter TAG_WIDTH = 25,
+    parameter CACHE_LINES = 128,
+    parameter INDEX_WIDTH = 7
 )
-(   
-    input [INDEX_LENGTH-1:0] index_i,
-    input [TAG_LENGTH-1:0] tag_i,
-    input we_i,
-    input deload_i,
+(
     
-    output reg [TAG_LENGTH-1:0] tag_o,
-    output wire free_o
+    input clk,
+    input [INDEX_WIDTH-1:0] index,
+    input [TAG_WIDTH-1:0] data_in,
+    input we,
+    
+    output reg [TAG_WIDTH-1:0] data_out
 );
+
+
+reg [TAG_WIDTH-1:0] mem [CACHE_LINES-1:0];
+
+always@(posedge clk)
+begin
+    data_out <= mem[index];
     
-    reg [TAG_LENGTH-1:0] tagRam [CACHE_LINES-1:0];
-      
-    always@(*)
-    begin
-        if(we_i && tagRam[index_i]===RESET_VALUE)
-        begin
-            tagRam[index_i] = tag_i;
-        end
-       
-        tag_o = tagRam[index_i];
-        
-        if(deload_i)
-        begin
-            tagRam[index_i] = RESET_VALUE;
-        end
-    end
-    
-    assign free_o = tagRam[index_i]===RESET_VALUE ? 1'b1 : 1'b0;
-    
+    if(we) mem[index] = data_in;
+end
+
 endmodule
