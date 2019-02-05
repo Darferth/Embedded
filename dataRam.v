@@ -45,7 +45,7 @@ always@(posedge clk)
 begin
     data_out <= mem[index][offset];
     
-    if(we) mem[index][offset] = data_in;
+    if(we) mem[index][offset] <= data_in;
 end
 
 endmodule
