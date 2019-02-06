@@ -24,24 +24,28 @@
 module cache_tb();
 reg clk;
 reg rst;
+
 reg cpu_req_i;
 reg [`ADR_WIDTH-1:0] cpu_adr_i;
 reg [`DATA_WIDTH-1:0] cpu_dat_i;
 reg cpu_rdwr_i;
 wire cpu_ack_o;
 wire [`DATA_WIDTH-1:0] cpu_dat_o;
+
 wire mem_req_o;
 wire [`ADR_WIDTH-1:0] mem_adr_o;
-wire [`DATA_WIDTH-1:0]mem_dat_o;
-wire mem_rdwr_o; 
-    
 reg mem_ack_i;
 reg mem_dat_i;  //128 bit o 32 bit?
-reg mshr_load_adr_i; //128 bit o 32 bit?
-reg mshr_load_dat_i; //128 bit o 32 bit?
-wire mshr_victim_adr_o;
+
+//reg mshr_load_adr_i; //128 bit o 32 bit?
+//reg mshr_load_dat_i; //128 bit o 32 bit?
+//wire mshr_victim_adr_o;
+//wire mshr_victim_dat_o;
+//wire mshr_word_o;
+wire mshr_load_dat_o;
+wire mshr_load_word_o;
 wire mshr_victim_dat_o;
-wire mshr_word_o;
+wire mshr_victim_word_o;
 
 always #5 clk=~clk;
 
@@ -61,8 +65,10 @@ begin
     cpu_dat_i<=32'b11101010100110011010100101001010;
     cpu_rdwr_i<=1'b1;
     cpu_req_i<=1'b1;
+    mem_ack_i=1'b1;
+    mem_dat_i=1;
     
-    #10
+    #30
     
     cpu_req_i<=1'bx;
     cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
@@ -158,10 +164,10 @@ begin
     $finish;
 end
 
- cache_4way cache_tb(.rst(rst), .cpu_req_i(cpu_req_i), .cpu_adr_i(cpu_adr_i), .cpu_dat_i(cpu_dat_i),
+ cache4way cache_tb(.rst(rst), .cpu_req_i(cpu_req_i), .cpu_adr_i(cpu_adr_i), .cpu_dat_i(cpu_dat_i),
 .cpu_rdwr_i(cpu_rdwr_i), .cpu_ack_o(cpu_ack_o), .cpu_dat_o(cpu_dat_o), .mem_req_o(mem_req_o), 
-.mem_adr_o(mem_adr_o), .mem_dat_o(mem_dat_o), .mem_rdwr_o(mem_rdwr_o), .mem_ack_i(mem_ack_i),
-.mem_dat_i(mem_dat_i), .mshr_load_adr_i(mshr_load_adr_i), .mshr_load_dat_i(mshr_load_dat_i), 
-.mshr_victim_adr_o(mshr_victim_adr_o), .mshr_victim_dat_o(mshr_victim_dat_o), .mshr_word_o(mshr_word_o));
+.mem_adr_o(mem_adr_o), .mem_ack_i(mem_ack_i),.mem_dat_i(mem_dat_i),
+ .mshr_load_dat_o(mshr_load_dat_o), .mshr_load_word_o(mshr_load_word_o), 
+.mshr_victim_dat_o(mshr_victim_dat_o), .mshr_victim_word_o(mshr_victim_word_o));
 
 endmodule

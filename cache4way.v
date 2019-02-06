@@ -43,16 +43,16 @@ module cache4way
     //-------------------------//
     input cpu_req_i,
     input [ADR_WIDTH-1:0] cpu_adr_i,
-    input cpu_dat_i,
+    input [WORD_WIDTH-1:0]cpu_dat_i,
     input cpu_rdwr_i,
     
     output reg cpu_ack_o,
-    output reg cpu_dat_o,
+    output reg [WORD_WIDTH-1:0]cpu_dat_o,
 
     // MEM
     //-------------------------//
     output reg mem_req_o,
-    output reg mem_adr_o,
+    output reg [ADR_WIDTH-1:0]mem_adr_o,
     
     input mem_ack_i,
     input mem_dat_i,
@@ -142,10 +142,10 @@ reg [DATAMEM_WIDTH-1:0] readData, writeData;
 reg we_tag, we_data;
 reg sel;
 
-assign tag = cpu_adr_i[ADR_TAG_BEGIN : ADR_TAG_END];
-assign index = cpu_adr_i[ADR_INDEX_BEGIN : ADR_INDEX_END];
-assign word_offset = (fetch_line==1'b0) ? cpu_adr_i[ADR_WORD_OFFSET_BEGIN : ADR_WORD_OFFSET_END] : cnt_fetch;
-assign byte_offset = cpu_adr_i[ADR_BYTE_OFFSET_BEGIN : ADR_BYTE_OFFSET_END];
+assign tag = cpu_adr_i[ADR_TAG_END : ADR_TAG_BEGIN];
+assign index = cpu_adr_i[ADR_INDEX_END : ADR_INDEX_BEGIN];
+assign word_offset = (fetch_line==1'b0) ? cpu_adr_i[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN] : cnt_fetch;
+assign byte_offset = cpu_adr_i[ADR_BYTE_OFFSET_END : ADR_BYTE_OFFSET_BEGIN];
 
 assign valid_way0 = readTag[22];
 assign valid_way1 = readTag[45];
@@ -271,7 +271,7 @@ begin
                  endcase
                  mshr_victim_word_o = word_offset;
                  
-                 cnt_deload_next = cpu_adr_i[ADR_WORD_OFFSET_BEGIN : ADR_WORD_OFFSET_END] + 2'b01;
+                 cnt_deload_next = cpu_adr_i[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN] + 2'b01;
              end
         end     
     HIT:
@@ -288,7 +288,7 @@ begin
         end
     REFILL_BLOCKED:
         begin
-            if(cnt_deload != cpu_adr_i[ADR_WORD_OFFSET_BEGIN : ADR_WORD_OFFSET_END])
+            if(cnt_deload != cpu_adr_i[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN])
             begin
                 case(cnt_deload)
                 2'b00: mshr_victim_dat_o = readData[95 : 64];
@@ -326,7 +326,7 @@ begin
         end
     REFILL:
         begin
-            if(cnt_fetch != cpu_adr_i[ADR_WORD_OFFSET_BEGIN : ADR_WORD_OFFSET_END])
+            if(cnt_fetch != cpu_adr_i[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN])
             begin
                 if(mem_ack_i == 1'b1)
                 begin
