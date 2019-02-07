@@ -43,26 +43,26 @@ module cache4way
     //-------------------------//
     input cpu_req_i,
     input [ADR_WIDTH-1:0] cpu_adr_i,
-    input [WORD_WIDTH-1:0]cpu_dat_i,
+    input [WORD_WIDTH-1:0] cpu_dat_i,
     input cpu_rdwr_i,
     
     output reg cpu_ack_o,
-    output reg [WORD_WIDTH-1:0]cpu_dat_o,
+    output reg [WORD_WIDTH-1:0] cpu_dat_o,
 
     // MEM
     //-------------------------//
     output reg mem_req_o,
-    output reg [ADR_WIDTH-1:0]mem_adr_o,
+    output reg [ADR_WIDTH-1:0] mem_adr_o,
     
     input mem_ack_i,
-    input mem_dat_i,
+    input [WORD_WIDTH-1:0] mem_dat_i,
 
     // MSHR
     //-------------------------//
-    output reg mshr_load_dat_o,
-    output reg mshr_load_word_o,
-    output reg mshr_victim_dat_o,
-    output reg mshr_victim_word_o
+    output reg [WORD_WIDTH-1:0] mshr_load_dat_o,
+    output reg [WORD_OFFSET_WIDTH-1:0] mshr_load_word_o,
+    output reg [WORD_WIDTH-1:0] mshr_victim_dat_o,
+    output reg [WORD_OFFSET_WIDTH-1:0] mshr_victim_word_o
     
 );
 
@@ -140,12 +140,12 @@ reg [LRU_WIDTH-1:0] lru_next [WAY_NUM-1:0];
 reg [TAGMEM_WIDTH-1:0] readTag, writeTag;
 reg [DATAMEM_WIDTH-1:0] readData, writeData;
 reg we_tag, we_data;
-reg sel;
+reg way;
 
 assign tag = cpu_adr_i[ADR_TAG_END : ADR_TAG_BEGIN];
 assign index = cpu_adr_i[ADR_INDEX_END : ADR_INDEX_BEGIN];
 assign word_offset = (fetch_line==1'b0) ? cpu_adr_i[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN] : cnt_fetch;
-assign byte_offset = cpu_adr_i[ADR_BYTE_OFFSET_END : ADR_BYTE_OFFSET_BEGIN];
+assign byte_offset = cpu_adr_i[ADR_BYTE_OFFSET_END : ADR_BYTE_OFFSET_BEGIN]; //00
 
 assign valid_way0 = readTag[22];
 assign valid_way1 = readTag[45];
@@ -174,7 +174,7 @@ assign hit_way3 = comp_tag_way3 & valid_way3;
 
 assign hit = hit_way0 | hit_way1 | hit_way2 | hit_way3;
 
-assign way_hit = (hit_way0==1'b1) ? 2'b00 : (hit_way1==1'b1) ? 2'b01 : (hit_way2==1'b1) ? 2'b10 : 2'b11; 
+assign way_hit = (hit_way0==1'b1) ? 2'b00 : (hit_way1==1'b1) ? 2'b01 : (hit_way2==1'b1) ? 2'b10 : (hit_way2==1'b1) ? 2'b11 : lru_way; 
 
 integer i;
 
@@ -198,12 +198,12 @@ begin
                 else if(way_hit == 2'b10) tagMem[index][66:46] <= writeTag; 
                 else if(way_hit == 2'b11) tagMem[index][89:69] <= writeTag;
                 
-            if(we_data == 1'b0) readData <= dataMem[index][sel];
+            if(we_data == 1'b0) readData <= dataMem[index][way];
             else
-                if(word_offset == 2'b00) dataMem[index][sel][31 : 0] <= writeData;
-                else if(word_offset == 2'b01) dataMem[index][sel][63 : 32] <= writeData;
-                else if(word_offset == 2'b10) dataMem[index][sel][95 : 64] <= writeData;
-                else if(word_offset == 2'b11) dataMem[index][sel][127 : 96] <= writeData;
+                if(word_offset == 2'b00) dataMem[index][way][31 : 0] <= writeData;
+                else if(word_offset == 2'b01) dataMem[index][way][63 : 32] <= writeData;
+                else if(word_offset == 2'b10) dataMem[index][way][95 : 64] <= writeData;
+                else if(word_offset == 2'b11) dataMem[index][way][127 : 96] <= writeData;
             
         end
    
@@ -229,7 +229,8 @@ begin
             we_tag = 1'b0;
             cpu_ack_o = 1'b0;
             deload_line = 1'b0;
-            sel = lru_way;
+            fetch_line = 1'b0;
+            way = lru_way;
         
             if(cpu_req_i==1'b1)
             begin
@@ -241,7 +242,7 @@ begin
             if(hit)
             begin
             
-                sel = way_hit;
+                way = way_hit;
                 ss_next = HIT;
                 
              end
@@ -255,12 +256,6 @@ begin
                  mem_adr_o = cpu_adr_i;
                  cnt_fetch_next = word_offset; 
                  //mem_adr_o = {cpu_adr_i[31:4],word_offset,2'b00};
-                 
-                 //select victim line
-                 
-                 deload_line=1'b1;
-                 //word_deload=cnt_deload;
-                 //sel = lru_way;
                  
                  //Data read contiene gi� la linea da scaricare 
                  case(word_offset)
@@ -298,31 +293,31 @@ begin
                 endcase
                 mshr_victim_word_o = cnt_deload;
                 cnt_deload_next = cnt_deload + 2'b01;
-                deload_line = 1'b0;
             end
-            
-            if(deload_line == 1'b0 && mem_ack_i == 1'b1)
-            begin
-                fetch_line = 1'b1;
-                ss_next = REFILL;
-                mshr_load_dat_o = mem_dat_i;
-                mshr_load_word_o = cnt_fetch;
-                cnt_fetch_next = cnt_fetch + 2'b01;
-                
-                writeData = mem_dat_i;
-                we_data = 1'b1;
-                we_tag = 1'b1;
-                writeTag = tag;
-                
-                if(cpu_rdwr_i==1'b0)
-                    cpu_dat_o = mem_dat_i;
-                else
-                    writeData = cpu_dat_i;
-                cpu_ack_o = 1'b1;
-                
-                //nuova richiesta    
-                mem_adr_o = {cpu_adr_i[31:4],cnt_fetch_next,2'b00};
-            end
+            else
+                if(mem_ack_i == 1'b1)
+                begin
+                    fetch_line = 1'b1;
+                    ss_next = REFILL;
+                    mshr_load_dat_o = mem_dat_i;
+                    mshr_load_word_o = cnt_fetch;
+                    cnt_fetch_next = cnt_fetch + 2'b01;
+                    
+                    writeData = mem_dat_i;
+                    we_data = 1'b1;
+                    we_tag = 1'b1;
+                    writeTag = tag; // <- problema scrittura del tag corretto 
+                    
+                    // WRITE/HIT MISS HANDLE
+                    if(cpu_rdwr_i==1'b0)
+                        cpu_dat_o = mem_dat_i;
+                    else
+                        writeData = cpu_dat_i;
+                    cpu_ack_o = 1'b1;
+                    
+                    //nuova richiesta    
+                    mem_adr_o = {cpu_adr_i[31:4],cnt_fetch_next,2'b00};
+                end
         end
     REFILL:
         begin
