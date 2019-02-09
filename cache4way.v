@@ -139,6 +139,7 @@ reg [LRU_WIDTH-1:0] lru_next [WAY_NUM-1:0];
 
 reg [TAGMEM_WIDTH-1:0] readTag, writeTag;
 reg [DATAMEM_WIDTH-1:0] readData, writeData;
+reg writeDirty;
 reg we_tag, we_data;
 reg way;
 
@@ -204,8 +205,27 @@ begin
                 else if(word_offset == 2'b01) dataMem[index][way][63 : 32] <= writeData;
                 else if(word_offset == 2'b10) dataMem[index][way][95 : 64] <= writeData;
                 else if(word_offset == 2'b11) dataMem[index][way][127 : 96] <= writeData;
-            
         end
+        
+        /*
+        if(cpu_req_i == 1'b1)
+        begin
+            if(we_tag == 1'b0) readTag <= tagMem[index];
+            else
+                if(way_hit == 2'b00) tagMem[index][22:0] <= {1'b1,writeDirty,writeTag};
+                else if(way_hit == 2'b01) tagMem[index][45:23] <= {1'b1,writeDirty,writeTag};
+                else if(way_hit == 2'b10) tagMem[index][68:46] <= {1'b1,writeDirty,writeTag};
+                else if(way_hit == 2'b11) tagMem[index][91:69] <= {1'b1,writeDirty,writeTag};
+                
+            if(we_data == 1'b0) readData <= dataMem[index][way];
+            else
+                if(word_offset == 2'b00) dataMem[index][way][31 : 0] <= writeData;
+                else if(word_offset == 2'b01) dataMem[index][way][63 : 32] <= writeData;
+                else if(word_offset == 2'b10) dataMem[index][way][95 : 64] <= writeData;
+                else if(word_offset == 2'b11) dataMem[index][way][127 : 96] <= writeData;
+        end
+        */
+        
    
         ss <= ss_next;
         cnt_fetch <= cnt_fetch_next; 
@@ -257,7 +277,7 @@ begin
                  cnt_fetch_next = word_offset; 
                  //mem_adr_o = {cpu_adr_i[31:4],word_offset,2'b00};
                  
-                 //Data read contiene gi� la linea da scaricare 
+                 //Data read contiene la linea da scaricare 
                  case(word_offset)
                  2'b00: mshr_victim_dat_o = readData[95 : 64];
                  2'b01: mshr_victim_dat_o = readData[63 : 32];
@@ -274,8 +294,11 @@ begin
             if(cpu_rdwr_i == 1'b0) cpu_dat_o = readData;
             else 
             begin
+                // Da verificare che scriva davvero o il we_data venga resettato in idle e non faccia in tempo a scrivere
                 we_data = 1'b1;
-                writeData = cpu_dat_i;     
+                writeData = cpu_dat_i;
+                we_tag = 1'b1;
+                writeDirty = 1'b1;     
             end
             cpu_ack_o = 1'b1;
             
@@ -302,17 +325,22 @@ begin
                     mshr_load_dat_o = mem_dat_i;
                     mshr_load_word_o = cnt_fetch;
                     cnt_fetch_next = cnt_fetch + 2'b01;
+                    //possibile problema con scrittura cache con cnt_fetch, da verificare con tb
                     
                     writeData = mem_dat_i;
                     we_data = 1'b1;
                     we_tag = 1'b1;
+                    writeDirty = 1'b0;
                     writeTag = tag; // <- problema scrittura del tag corretto 
                     
                     // WRITE/HIT MISS HANDLE
                     if(cpu_rdwr_i==1'b0)
                         cpu_dat_o = mem_dat_i;
                     else
+                    begin
                         writeData = cpu_dat_i;
+                        writeDirty = 1'b1;
+                    end
                     cpu_ack_o = 1'b1;
                     
                     //nuova richiesta    
@@ -342,26 +370,28 @@ begin
 end
 
 
-always@(posedge hit) //non sicuro del fronte di salita dell'hit
+always@(hit)
 begin
-    
-    for(i=0; i<WAY_NUM; i=i+1)
+    if(hit)
     begin
-        if(lruMem[index][i]==lruMem[index][way_hit])
-                lru_next[i] = 2'b00;
-            else if(lruMem[index][way_hit] < lruMem[index][i])
-                lru_next[i] = lruMem[index][i] + 2'b01; 
-    end
-       
-    lru_value=2'b00;
-    lru_way=2'b00;
-    
-    for(i=0; i<WAY_NUM; i=i+1)
-    begin
-        if(lru_value < lru_next[i])
+        for(i=0; i<WAY_NUM; i=i+1)
         begin
-            lru_value = lru_next[i];
-            lru_way = i;
+            if(lruMem[index][i]==lruMem[index][way_hit])
+                    lru_next[i] = 2'b00;
+                else if(lruMem[index][way_hit] < lruMem[index][i])
+                    lru_next[i] = lruMem[index][i] + 2'b01; 
+        end
+           
+        lru_value=2'b00;
+        lru_way=2'b00;
+        
+        for(i=0; i<WAY_NUM; i=i+1)
+        begin
+            if(lru_value < lru_next[i])
+            begin
+                lru_value = lru_next[i];
+                lru_way = i;
+            end
         end
     end
 end
