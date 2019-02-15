@@ -106,7 +106,7 @@ localparam DATAMEM_WIDTH = (WORD_WIDTH*WORD_NUM);
 *            +-----------------------------------+     -+
 */
 
-localparam IDLE=3'b000, LOOKUP=3'b001, HIT=3'b010, REFILL_BLOCKED=3'b011, REFILL=3'b100;
+localparam IDLE=3'b000, LOOKUP=3'b001, HIT=3'b010, REFILL_BLOCKED=3'b011, REFILL=3'b100, DISCARD=3'b110;
 
 reg [2:0] ss, ss_next;
 reg [1:0] cnt_fetch, cnt_fetch_next;
@@ -119,7 +119,7 @@ wire [BYTE_OFFSET_WIDTH-1:0] byte_offset;
 
 wire hit, hit_way0, hit_way1, hit_way2, hit_way3;
 wire [1:0] way_hit;
-wire valid_way0, valid_way1, valid_way2, valid_way3;
+wire valid, valid_way0, valid_way1, valid_way2, valid_way3;
 wire dirty_way0, dirty_way1, dirty_way2, dirty_way3;
 wire comp_tag_way0, comp_tag_way1, comp_tag_way2, comp_tag_way3;
 wire [TAG_WIDTH-1:0] tag_way0, tag_way1, tag_way2, tag_way3;
@@ -152,6 +152,7 @@ assign valid_way0 = readTag[22];
 assign valid_way1 = readTag[45];
 assign valid_way2 = readTag[68];
 assign valid_way3 = readTag[91];
+assign valid = valid_way0 & valid_way1 & valid_way2 & valid_way3;
 
 assign dirty_way0 = readTag[21];
 assign dirty_way1 = readTag[44];
@@ -177,7 +178,18 @@ assign hit = hit_way0 | hit_way1 | hit_way2 | hit_way3;
 
 assign way_hit = (hit_way0==1'b1) ? 2'b00 : (hit_way1==1'b1) ? 2'b01 : (hit_way2==1'b1) ? 2'b10 : (hit_way2==1'b1) ? 2'b11 : lru_way; 
 
-integer i;
+integer i, j;
+initial begin
+    for(i = 0; i <CACHE_LINES; i=i+1) 
+        begin
+            tagMem[i]=TAGMEM_WIDTH*{1'b0};
+            for (j = 0; i<WAY_NUM ; i=i+1)
+            begin
+                dataMem[j][i]=DATAMEM_WIDTH*{1'b0};
+                lruMem[j][i]=LRU_WIDTH*{1'b0};
+            end
+        end
+   end
 
 always@(posedge clk)
 begin
@@ -198,6 +210,11 @@ begin
                 else if(way_hit == 2'b01) tagMem[index][43:23] <= writeTag; 
                 else if(way_hit == 2'b10) tagMem[index][66:46] <= writeTag; 
                 else if(way_hit == 2'b11) tagMem[index][89:69] <= writeTag;
+                else if(!valid_way0) tagMem[index][20:0] <= writeTag;
+                else if(!valid_way1) tagMem[index][43:23] <= writeTag; 
+                else if(!valid_way2) tagMem[index][66:46] <= writeTag; 
+                else if(!valid_way3) tagMem[index][89:69] <= writeTag;
+                //else select way based on lru
                 
             if(we_data == 1'b0) readData <= dataMem[index][way];
             else
@@ -266,7 +283,16 @@ begin
                 ss_next = HIT;
                 
              end
-             else // MISS
+             else if(!valid)
+             begin
+             
+                ss_next=DISCARD;    
+                mem_req_o=1'b1;
+                mem_adr_o=cpu_adr_i;
+                cnt_fetch_next=word_offset;
+                
+             end
+             else// MISS
              begin
                  ss_next = REFILL_BLOCKED;
                  
@@ -347,6 +373,40 @@ begin
                     mem_adr_o = {cpu_adr_i[31:4],cnt_fetch_next,2'b00};
                 end
         end
+    
+    DISCARD:
+        begin
+            if(mem_ack_i == 1'b1)
+            begin
+                fetch_line = 1'b1;
+                ss_next = REFILL;
+                mshr_load_dat_o = mem_dat_i;
+                mshr_load_word_o = cnt_fetch;
+                cnt_fetch_next = cnt_fetch + 2'b01;
+                            //possibile problema con scrittura cache con cnt_fetch, da verificare con tb
+                            
+                writeData = mem_dat_i;
+                we_data = 1'b1;
+                we_tag = 1'b1;
+                writeDirty = 1'b0;
+                writeTag = tag;
+                            
+                            // WRITE/HIT MISS HANDLE
+                if(cpu_rdwr_i==1'b0)
+                cpu_dat_o = mem_dat_i;
+                else
+                begin
+                    writeData = cpu_dat_i;
+                    writeDirty = 1'b1;
+                end
+                cpu_ack_o = 1'b1;
+                            
+               //nuova richiesta    
+                mem_adr_o = {cpu_adr_i[31:4],cnt_fetch_next,2'b00};
+                 
+           end
+     end
+        
     REFILL:
         begin
             if(cnt_fetch != cpu_adr_i[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN])
