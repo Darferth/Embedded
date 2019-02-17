@@ -106,7 +106,7 @@ localparam DATAMEM_WIDTH = (WORD_WIDTH*WORD_NUM);
 *            +-----------------------------------+     -+
 */
 
-localparam IDLE=3'b000, LOOKUP=3'b001, HIT=3'b010, REFILL_BLOCKED=3'b011, REFILL=3'b100, DISCARD=3'b110;
+localparam IDLE=3'b000, LOOKUP=3'b001, HIT=3'b010, REFILL_BLOCKED=3'b011, REFILL=3'b100;
 
 reg [2:0] ss, ss_next;
 reg [1:0] cnt_fetch, cnt_fetch_next;
@@ -135,10 +135,11 @@ reg [WORD_WIDTH-1:0] data_read;
 reg [TAGMEM_WIDTH-1:0] tagMem [CACHE_LINES-1:0];
 reg [DATAMEM_WIDTH-1:0] dataMem [WAY_NUM-1:0][CACHE_LINES-1:0];
 reg [LRU_WIDTH-1:0] lruMem [WAY_NUM-1:0][CACHE_LINES-1:0];
-reg [LRU_WIDTH-1:0] lru_next [WAY_NUM-1:0];
+reg [LRU_WIDTH-1:0] lru_next [LRU_WIDTH-1:0];
 
 reg [TAGMEM_WIDTH-1:0] readTag, writeTag;
-reg [WORD_WIDTH-1:0] readData, writeData;
+reg [DATAMEM_WIDTH-1:0] readData;
+reg [WORD_WIDTH-1:0] writeData;
 reg writeDirty;
 reg writeValid=1'b1;
 reg we_tag, we_data;
@@ -181,12 +182,13 @@ assign way_hit = (hit_way0==1'b1) ? 2'b00 : (hit_way1==1'b1) ? 2'b01 : (hit_way2
 
 integer i, j;
 initial begin
+lru_way=2'b00;
     for(i = 0; i <CACHE_LINES; i=i+1) 
         begin
-            tagMem[i]=TAGMEM_WIDTH*{1'b0};
+            tagMem[i]=TAGMEM_WIDTH*{1'b1};
             for (j = 0; j<WAY_NUM ; j=j+1)
             begin
-                dataMem[j][i]=DATAMEM_WIDTH*{1'b0};
+                dataMem[j][i]=DATAMEM_WIDTH*{1'b1};
                 lruMem[j][i]=LRU_WIDTH*{1'b0};
             end
         end
@@ -203,30 +205,24 @@ begin
     else
     begin
     
-       /* if(cpu_req_i == 1'b1) //Da mettere?
+        if(cpu_req_i == 1'b1) //Da mettere?
         begin
             if(we_tag == 1'b0) readTag <= tagMem[index];
             else
-                if(way_hit == 2'b00) tagMem[index][20:0] <= writeTag;
-                else if(way_hit == 2'b01) tagMem[index][43:23] <= writeTag; 
-                else if(way_hit == 2'b10) tagMem[index][66:46] <= writeTag; 
-                else if(way_hit == 2'b11) tagMem[index][89:69] <= writeTag;
-                else if(!valid_way0) tagMem[index][20:0] <= writeTag;
-                else if(!valid_way1) tagMem[index][43:23] <= writeTag; 
-                else if(!valid_way2) tagMem[index][66:46] <= writeTag; 
-                else if(!valid_way3) tagMem[index][89:69] <= writeTag;
-                //else select way based on lru
+                if(way_hit == 2'b00) tagMem[index][22:0] <= {1'b1,writeDirty,writeTag};
+                else if(way_hit == 2'b01) tagMem[index][45:23] <= {1'b1,writeDirty,writeTag};
+                else if(way_hit == 2'b10) tagMem[index][68:46] <= {1'b1,writeDirty,writeTag};
+                else if(way_hit == 2'b11) tagMem[index][91:69] <= {1'b1,writeDirty,writeTag};
                 
             if(we_data == 1'b0) readData <= dataMem[index][way];
-            else
-                if(word_offset == 2'b00) dataMem[index][way][31 : 0] <= writeData;
+            else if(word_offset == 2'b00) dataMem[index][way][31 : 0] <= writeData;
                 else if(word_offset == 2'b01) dataMem[index][way][63 : 32] <= writeData;
                 else if(word_offset == 2'b10) dataMem[index][way][95 : 64] <= writeData;
                 else if(word_offset == 2'b11) dataMem[index][way][127 : 96] <= writeData;
-        end*/
+        end
         
         
-        if(cpu_req_i == 1'b1)
+        /*if(cpu_req_i == 1'b1)
         begin
             if(we_tag == 1'b0) readTag <= tagMem[index];
             else
@@ -251,7 +247,7 @@ begin
                 else if(word_offset == 2'b10) dataMem[index][way_hit][95 : 64] <= writeData;
                 else if(word_offset == 2'b11) dataMem[index][way_hit][127 : 96] <= writeData;
         end
-        
+        */
         
    
         ss <= ss_next;
@@ -293,15 +289,6 @@ begin
             
                 way = way_hit;
                 ss_next = HIT;
-                
-             end
-             else if(!valid)
-             begin
-             
-                ss_next=DISCARD;    
-                mem_req_o=1'b1;
-                mem_adr_o=cpu_adr_i;
-                cnt_fetch_next=word_offset;
                 
              end
              else// MISS REPLACE
@@ -386,7 +373,7 @@ begin
                 end
         end
     
-    DISCARD:
+   /* DISCARD:
         begin
             we_tag = 1'b1;
             writeDirty = 1'b0;
@@ -418,7 +405,7 @@ begin
                  
            end
      end
-        
+  */      
     REFILL:
         begin
         
