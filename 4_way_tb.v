@@ -37,7 +37,7 @@ wire [`DATA_WIDTH-1:0] cpu_dat_o;
 wire mem_req_o;
 wire [`ADR_WIDTH-1:0] mem_adr_o;
 reg mem_ack_i;
-reg mem_dat_i;  //128 bit o 32 bit?
+reg [`DATA_WIDTH-1:0]mem_dat_i;  //128 bit o 32 bit?
 
 //reg mshr_load_adr_i; //128 bit o 32 bit?
 //reg mshr_load_dat_i; //128 bit o 32 bit?
@@ -60,8 +60,7 @@ begin
     #10
     
     /*READ REQUEST MISS, FREE CACHE =>
-     ALLOCATES IN CACHE THE LINE, THEN READS WORD
-    MEM VALUE MISSING, NEED TO ADD IT*/
+     ALLOCATES IN CACHE THE LINE, THEN READS WORD*/
     rst<=1'b1;
     
     #10
@@ -73,15 +72,39 @@ begin
     cpu_rdwr_i<=1'b0;
     cpu_req_i<=1'b1;
     #30
-    mem_ack_i=1'b1;
-    mem_dat_i=1;
-    
+    mem_ack_i<=1'b1;
+    mem_dat_i<=32'b1110101010011001101010010100101;
+    #10
+    mem_ack_i<=1'b0;
     #30
+    mem_ack_i<=1'b1;
+    mem_dat_i<=32'b1110101010011001101010010111101;
+    #10
+    mem_ack_i<=1'b0;
+    #30
+    mem_ack_i<=1'b1;
+    mem_dat_i<=32'b1110101010011001011010010100101;
+    #10
+    mem_ack_i<=1'b0;
+    #30
+    mem_ack_i<=1'b1;
+    mem_dat_i<=32'b1110101010000001101010010100101;
+    #10
+    mem_ack_i<=1'b0;
+    #100
     
-    cpu_req_i<=1'bx;
-    cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-    cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-    cpu_rdwr_i<=1'bx;
+    cpu_req_i<=1'b0;
+    //cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+    //cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+    //cpu_rdwr_i<=1'bx;
+    
+    #10
+    
+    
+    /*READ REQUEST HIT, READS THE WORD REQUESTED*/
+    cpu_adr_i<=32'b00000000110011000011101101000011;
+    cpu_rdwr_i<=1'b0;
+    cpu_req_i<=1'b1;
     
     #10
     
@@ -102,12 +125,7 @@ begin
     
     #10
     
-   /*READ REQUEST HIT, READS THE WORD REQUESTED*/
-    cpu_adr_i<=32'b00000000110011000011101101000011;
-    cpu_rdwr_i<=1'b0;
-    cpu_req_i<=1'b1;
-    
-    #10
+   
     
     cpu_req_i<=1'bx;
     cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;

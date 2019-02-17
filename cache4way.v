@@ -138,10 +138,11 @@ reg [LRU_WIDTH-1:0] lruMem [WAY_NUM-1:0][CACHE_LINES-1:0];
 reg [LRU_WIDTH-1:0] lru_next [WAY_NUM-1:0];
 
 reg [TAGMEM_WIDTH-1:0] readTag, writeTag;
-reg [DATAMEM_WIDTH-1:0] readData, writeData;
+reg [WORD_WIDTH-1:0] readData, writeData;
 reg writeDirty;
+reg writeValid=1'b1;
 reg we_tag, we_data;
-reg way;
+reg [1:0] way;
 
 assign tag = cpu_adr_i[ADR_TAG_END : ADR_TAG_BEGIN];
 assign index = cpu_adr_i[ADR_INDEX_END : ADR_INDEX_BEGIN];
@@ -183,7 +184,7 @@ initial begin
     for(i = 0; i <CACHE_LINES; i=i+1) 
         begin
             tagMem[i]=TAGMEM_WIDTH*{1'b0};
-            for (j = 0; i<WAY_NUM ; i=i+1)
+            for (j = 0; j<WAY_NUM ; j=j+1)
             begin
                 dataMem[j][i]=DATAMEM_WIDTH*{1'b0};
                 lruMem[j][i]=LRU_WIDTH*{1'b0};
@@ -202,7 +203,7 @@ begin
     else
     begin
     
-        if(cpu_req_i == 1'b1) //Da mettere?
+       /* if(cpu_req_i == 1'b1) //Da mettere?
         begin
             if(we_tag == 1'b0) readTag <= tagMem[index];
             else
@@ -222,26 +223,35 @@ begin
                 else if(word_offset == 2'b01) dataMem[index][way][63 : 32] <= writeData;
                 else if(word_offset == 2'b10) dataMem[index][way][95 : 64] <= writeData;
                 else if(word_offset == 2'b11) dataMem[index][way][127 : 96] <= writeData;
-        end
+        end*/
         
-        /*
+        
         if(cpu_req_i == 1'b1)
         begin
             if(we_tag == 1'b0) readTag <= tagMem[index];
             else
-                if(way_hit == 2'b00) tagMem[index][22:0] <= {1'b1,writeDirty,writeTag};
-                else if(way_hit == 2'b01) tagMem[index][45:23] <= {1'b1,writeDirty,writeTag};
-                else if(way_hit == 2'b10) tagMem[index][68:46] <= {1'b1,writeDirty,writeTag};
-                else if(way_hit == 2'b11) tagMem[index][91:69] <= {1'b1,writeDirty,writeTag};
+                if(way_hit == 2'b00) tagMem[index][22:0] <= {writeValid,writeDirty,writeTag};
+                else if(way_hit == 2'b01) tagMem[index][45:23] <= {writeValid,writeDirty,writeTag};
+                else if(way_hit == 2'b10) tagMem[index][68:46] <= {writeValid,writeDirty,writeTag};
+                else if(way_hit == 2'b11) tagMem[index][91:69] <= {writeValid,writeDirty,writeTag};
+                else if(!valid_way0) 
+                begin
+                    tagMem[index][20:0] <= writeTag;
+                    tagMem[index][21:21] <= writeDirty;
+                    tagMem[index][22:22] <= writeValid;
+                end
+                else if(!valid_way1) tagMem[index][45:23] <= {writeValid,writeDirty,writeTag}; 
+                else if(!valid_way2) tagMem[index][68:46] <= {writeValid,writeDirty,writeTag}; 
+                else if(!valid_way3) tagMem[index][91:69] <= {writeValid,writeDirty,writeTag};
                 
             if(we_data == 1'b0) readData <= dataMem[index][way];
             else
-                if(word_offset == 2'b00) dataMem[index][way][31 : 0] <= writeData;
-                else if(word_offset == 2'b01) dataMem[index][way][63 : 32] <= writeData;
-                else if(word_offset == 2'b10) dataMem[index][way][95 : 64] <= writeData;
-                else if(word_offset == 2'b11) dataMem[index][way][127 : 96] <= writeData;
+                if(word_offset == 2'b00) dataMem[index][way_hit][31 : 0] <= writeData;
+                else if(word_offset == 2'b01) dataMem[index][way_hit][63 : 32] <= writeData;
+                else if(word_offset == 2'b10) dataMem[index][way_hit][95 : 64] <= writeData;
+                else if(word_offset == 2'b11) dataMem[index][way_hit][127 : 96] <= writeData;
         end
-        */
+        
         
    
         ss <= ss_next;
@@ -258,6 +268,8 @@ end
 always@(*)
 begin
     ss_next=ss;
+    cnt_fetch_next=cnt_fetch;
+    cnt_deload_next=cnt_deload;
     case(ss)
     IDLE:
         begin
@@ -292,7 +304,7 @@ begin
                 cnt_fetch_next=word_offset;
                 
              end
-             else// MISS
+             else// MISS REPLACE
              begin
                  ss_next = REFILL_BLOCKED;
                  
@@ -376,21 +388,21 @@ begin
     
     DISCARD:
         begin
+            we_tag = 1'b1;
+            writeDirty = 1'b0;
+            writeTag = tag;
             if(mem_ack_i == 1'b1)
             begin
                 fetch_line = 1'b1;
+                we_tag = 1'b0;
                 ss_next = REFILL;
                 mshr_load_dat_o = mem_dat_i;
                 mshr_load_word_o = cnt_fetch;
                 cnt_fetch_next = cnt_fetch + 2'b01;
                             //possibile problema con scrittura cache con cnt_fetch, da verificare con tb
-                            
+                
                 writeData = mem_dat_i;
-                we_data = 1'b1;
-                we_tag = 1'b1;
-                writeDirty = 1'b0;
-                writeTag = tag;
-                            
+                we_data = 1'b1;          
                             // WRITE/HIT MISS HANDLE
                 if(cpu_rdwr_i==1'b0)
                 cpu_dat_o = mem_dat_i;
@@ -409,6 +421,7 @@ begin
         
     REFILL:
         begin
+        
             if(cnt_fetch != cpu_adr_i[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN])
             begin
                 if(mem_ack_i == 1'b1)
@@ -423,6 +436,7 @@ begin
              end
              else
              begin
+                we_data = 1'b0;
                 ss_next = IDLE;
              end
         end
