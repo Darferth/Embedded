@@ -20,6 +20,8 @@
 //////////////////////////////////////////////////////////////////////////////////
 `define ADR_WIDTH 32
 `define DATA_WIDTH 32
+`define WORD_OFFSET 2
+
 
 module cache_tb();
 reg clk;
@@ -42,29 +44,35 @@ reg mem_dat_i;  //128 bit o 32 bit?
 //wire mshr_victim_adr_o;
 //wire mshr_victim_dat_o;
 //wire mshr_word_o;
-wire mshr_load_dat_o;
-wire mshr_load_word_o;
-wire mshr_victim_dat_o;
-wire mshr_victim_word_o;
+wire [`DATA_WIDTH-1:0]mshr_load_dat_o;
+wire [`WORD_OFFSET-1:0]mshr_load_word_o;
+wire [`DATA_WIDTH-1:0]mshr_victim_dat_o;
+wire [`WORD_OFFSET-1:0]mshr_victim_word_o;
 
 always #5 clk=~clk;
 
 initial
 begin
     
-    clk=0;
-    rst<=1'b1;
+    clk<=0;
+    rst=1'b0;
     
     #10
     
-    /*WRITE REQUEST MISS, FREE CACHE =>
-     ALLOCATES IN CACHE THE LINE, THEN WRITES WORD
+    /*READ REQUEST MISS, FREE CACHE =>
+     ALLOCATES IN CACHE THE LINE, THEN READS WORD
     MEM VALUE MISSING, NEED TO ADD IT*/
+    rst<=1'b1;
+    
+    #10
     rst<=1'b0;
+    
+    #10
     cpu_adr_i<=32'b00000000110011000011101101000011;
-    cpu_dat_i<=32'b11101010100110011010100101001010;
-    cpu_rdwr_i<=1'b1;
+    //cpu_dat_i<=32'b11101010100110011010100101001010;
+    cpu_rdwr_i<=1'b0;
     cpu_req_i<=1'b1;
+    #30
     mem_ack_i=1'b1;
     mem_dat_i=1;
     
@@ -164,7 +172,7 @@ begin
     $finish;
 end
 
- cache4way cache_tb(.rst(rst), .cpu_req_i(cpu_req_i), .cpu_adr_i(cpu_adr_i), .cpu_dat_i(cpu_dat_i),
+ cache4way cache_tb(.clk(clk), .rst(rst), .cpu_req_i(cpu_req_i), .cpu_adr_i(cpu_adr_i), .cpu_dat_i(cpu_dat_i),
 .cpu_rdwr_i(cpu_rdwr_i), .cpu_ack_o(cpu_ack_o), .cpu_dat_o(cpu_dat_o), .mem_req_o(mem_req_o), 
 .mem_adr_o(mem_adr_o), .mem_ack_i(mem_ack_i),.mem_dat_i(mem_dat_i),
  .mshr_load_dat_o(mshr_load_dat_o), .mshr_load_word_o(mshr_load_word_o), 
