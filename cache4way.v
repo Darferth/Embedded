@@ -257,7 +257,7 @@ end
 
 always@(*)
 begin
-    
+    ss_next=ss;
     case(ss)
     IDLE:
         begin
