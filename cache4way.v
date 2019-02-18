@@ -137,7 +137,8 @@ reg [DATAMEM_WIDTH-1:0] dataMem [WAY_NUM-1:0][CACHE_LINES-1:0];
 reg [LRU_WIDTH-1:0] lruMem [WAY_NUM-1:0][CACHE_LINES-1:0];
 reg [LRU_WIDTH-1:0] lru_next [LRU_WIDTH-1:0];
 
-reg [TAGMEM_WIDTH-1:0] readTag, writeTag;
+reg [TAGMEM_WIDTH-1:0] readTag;
+reg [TAG_WIDTH-1:0] writeTag;
 reg [DATAMEM_WIDTH-1:0] readData;
 reg [WORD_WIDTH-1:0] writeData;
 reg writeDirty;
@@ -185,11 +186,12 @@ initial begin
 lru_way=2'b00;
     for(i = 0; i <CACHE_LINES; i=i+1) 
         begin
-            tagMem[i]=TAGMEM_WIDTH*{1'b1};
+            tagMem[i]={1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}}};
             for (j = 0; j<WAY_NUM ; j=j+1)
             begin
-                dataMem[j][i]=DATAMEM_WIDTH*{1'b1};
-                lruMem[j][i]=LRU_WIDTH*{1'b0};
+                dataMem[j][i]={DATAMEM_WIDTH{1'b0}};
+                
+                lruMem[j][i]={LRU_WIDTH{1'b0}};
             end
         end
    end
@@ -346,7 +348,6 @@ begin
                 if(mem_ack_i == 1'b1)
                 begin
                     fetch_line = 1'b1;
-                    ss_next = REFILL;
                     mshr_load_dat_o = mem_dat_i;
                     mshr_load_word_o = cnt_fetch;
                     cnt_fetch_next = cnt_fetch + 2'b01;
@@ -370,6 +371,7 @@ begin
                     
                     //nuova richiesta    
                     mem_adr_o = {cpu_adr_i[31:4],cnt_fetch_next,2'b00};
+                    ss_next = REFILL;
                 end
         end
     

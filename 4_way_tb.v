@@ -67,11 +67,11 @@ begin
     rst<=1'b0;
     
     #10
-    cpu_adr_i<=32'b00000000110011000011101101000011;
+    cpu_adr_i<=32'b00000000110011000011101101000000;
     //cpu_dat_i<=32'b11101010100110011010100101001010;
     cpu_rdwr_i<=1'b0;
     cpu_req_i<=1'b1;
-    #40
+    #45
     mem_ack_i<=1'b1;
     mem_dat_i<=32'b1110101010011001101010010100101;
     #10
@@ -91,101 +91,102 @@ begin
     mem_dat_i<=32'b1110101010000001101010010100101;
     #10
     mem_ack_i<=1'b0;
-    #100
+    #5
     
     cpu_req_i<=1'b0;
     //cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
     //cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
     //cpu_rdwr_i<=1'bx;
     
-    #10
+    #40
     
     
     /*READ REQUEST HIT, READS THE WORD REQUESTED*/
-    cpu_adr_i<=32'b00000000110011000011101101000011;
+    cpu_adr_i<=32'b00000000110011000011101101000000;
     cpu_rdwr_i<=1'b0;
     cpu_req_i<=1'b1;
     
-    #10
+    #100
     
-    /*READ REQUEST MISS, FREE CACHE=> ASSUMING (TAG+INDEX+4bit)
-    ALLOCATES IN ANOTHER WAY, SAME INDEX AS BEFORE(FIRST BIT OF TAG 0 INSTEAD OF 1)
-    MEM VALUE MISSING, NEED TO ADD IT
-    */
-    cpu_adr_i<=32'b00000000110011000011001101000011;
-    cpu_rdwr_i<=1'b0;
-    cpu_req_i<=1'b1;
+//    /*READ REQUEST MISS, FREE CACHE=> ASSUMING (TAG+INDEX+4bit)
+//    ALLOCATES IN ANOTHER WAY, SAME INDEX AS BEFORE(FIRST BIT OF TAG 0 INSTEAD OF 1)
+//    MEM VALUE MISSING, NEED TO ADD IT
     
-    #10
+//    cpu_adr_i<=32'b00000000110011000011001101000011;
+//    cpu_rdwr_i<=1'b0;
+//    cpu_req_i<=1'b1;
     
-    cpu_req_i<=1'bx;
-    cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-    cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-    cpu_rdwr_i<=1'bx;
+//    #10
     
-    #10
+//    cpu_req_i<=1'bx;
+//    cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+//    cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+//    cpu_rdwr_i<=1'bx;
+    
+//    #10
     
    
     
-    cpu_req_i<=1'bx;
-    cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-    cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-    cpu_rdwr_i<=1'bx;
+//    cpu_req_i<=1'bx;
+//    cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+//    cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+//    cpu_rdwr_i<=1'bx;
     
-    #10
+//    #10
     
-    /*FILL A 4 WAY BLOCK IN ORDER TO INDUCE A READ MISS/WRITE MISS WITH REFILL*/
-    cpu_adr_i<=32'b00000000110011000010001101000011;
-    cpu_rdwr_i<=1'b0;
-    cpu_req_i<=1'b1;
+//    /*FILL A 4 WAY BLOCK IN ORDER TO INDUCE A READ MISS/WRITE MISS WITH REFILL*/
+//    cpu_adr_i<=32'b00000000110011000010001101000011;
+//    cpu_rdwr_i<=1'b0;
+//    cpu_req_i<=1'b1;
     
-    #10
+//    #10
     
-    cpu_req_i<=1'bx;
-    cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-    cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-    cpu_rdwr_i<=1'bx;
+//    cpu_req_i<=1'bx;
+//    cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+//    cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+//    cpu_rdwr_i<=1'bx;
     
-    #10
+//    #10
     
-    cpu_adr_i<=32'b00000000110011000000001101000011;
-    cpu_rdwr_i<=1'b0;
-    cpu_req_i<=1'b1;
+//    cpu_adr_i<=32'b00000000110011000000001101000011;
+//    cpu_rdwr_i<=1'b0;
+//    cpu_req_i<=1'b1;
     
-    #10
+//    #10
     
-    cpu_req_i<=1'bx;
-    cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-    cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-    cpu_rdwr_i<=1'bx;
+//    cpu_req_i<=1'bx;
+//    cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+//    cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+//    cpu_rdwr_i<=1'bx;
         
-    #10
+//    #10
     
-    /*READ MISS, NO SPACE LEFT IN THE SAME INDEX=>
-    REPLACE THE OLDEST LINE WITH THE ONE REQUESTED
-    MEM VALUE MISSING, NEED TO ADD IT*/ 
-    cpu_adr_i<=32'b00000000110011100000001101000011;
-    cpu_rdwr_i<=1'b0;
-    cpu_req_i<=1'b1;
+//    /*READ MISS, NO SPACE LEFT IN THE SAME INDEX=>
+//    REPLACE THE OLDEST LINE WITH THE ONE REQUESTED
+//    MEM VALUE MISSING, NEED TO ADD IT*/ 
+//    cpu_adr_i<=32'b00000000110011100000001101000011;
+//    cpu_rdwr_i<=1'b0;
+//    cpu_req_i<=1'b1;
     
-    #10
+//    #10
     
-    cpu_req_i<=1'bx;
-    cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-    cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
-    cpu_rdwr_i<=1'bx;
+//    cpu_req_i<=1'b0;
+//    cpu_adr_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+//    cpu_dat_i<=32'bxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx;
+//    cpu_rdwr_i<=1'bx;
             
-    #10
+//    #10
     
-    /*WRITE MISS, NO SPACE LEFT IN THE SAME INDEX=>
-    REPLACE THE OLDEST LINE WITH THE ONE IN WHICH I WRITE THE WORD
-    MEM VALUE MISSING, NEED TO ADD IT*/
-    cpu_adr_i<=32'b00000000100001000011101101000011;
-    cpu_dat_i<=32'b11101010100110011010100101001010;
-    cpu_rdwr_i<=1'b1;
-    cpu_req_i<=1'b1;
+//    /*WRITE MISS, NO SPACE LEFT IN THE SAME INDEX=>
+//    REPLACE THE OLDEST LINE WITH THE ONE IN WHICH I WRITE THE WORD
+//    MEM VALUE MISSING, NEED TO ADD IT*/
+//    cpu_adr_i<=32'b00000000100001000011101101000011;
+//    cpu_dat_i<=32'b11101010100110011010100101001010;
+//    cpu_rdwr_i<=1'b1;
+//    cpu_req_i<=1'b1;
     
-    #10
+//    #10
+    
     
     $finish;
 end
