@@ -48,7 +48,7 @@ wire    [ADR_WIDTH-1:0]     adr_cc2mem;
         //MSHR SIGNALS
 wire    [DATA_WIDTH-1:0]    dat_mem2mshr;
 wire    [WORD_OFFSET-1:0]   word_mem2mshr;
-wire    [DATA_WIDTH-1:0]    mshr_victim_dat_o;
+wire    [DATA_WIDTH-1:0]    dat_cc2mshr;
 
 
 always #5 clk=~clk;
@@ -73,7 +73,7 @@ begin
     adr_cpu2cc  <=      32'b00000000110011000011101101000000;
     rdwr_cpu2cc <=      1'b0;
     req_cpu2cc  <=      1'b1;
-    #45
+    #55
     ack_mem2cc  <=      1'b1;
     dat_mem2cc  <=      32'b1110101010011001101010010100101;
     #10
@@ -100,8 +100,9 @@ begin
     
     /*READ REQUEST HIT, READS THE WORD REQUESTED*/
     adr_cpu2cc  <=      32'b00000000110011000011101101000000;
-    rdwr_cpu2cc <=      1'b0;
+    rdwr_cpu2cc <=      1'b1;
     req_cpu2cc  <=      1'b1;
+    dat_cpu2cc<=        32'b11111111111111111111111111111111;
     
     #20 
     
@@ -207,7 +208,7 @@ end
                         .dat_mem2cc(dat_mem2cc),
                         .dat_mem2mshr(dat_mem2mshr), 
                         .word_mem2mshr(word_mem2mshr), 
-                        .mshr_victim_dat_o(mshr_victim_dat_o)
+                        .dat_cc2mshr(dat_cc2mshr)
                        );
 
 endmodule

@@ -58,7 +58,7 @@ module cache4way
     // MSHR
     //-------------------------//
     output reg [WORD_WIDTH-1:0]         dat_mem2mshr,
-    output reg [WORD_OFFSET_WIDTH-1:0]  word_mem2mshr,
+    output wire [WORD_OFFSET_WIDTH-1:0]  word_mem2mshr,
     output reg [DATAMEM_WIDTH-1:0]      dat_cc2mshr
     
 );
@@ -199,6 +199,8 @@ assign hit = hit_way0 | hit_way1 | hit_way2 | hit_way3;
 
 assign way_hit = (hit_way0==1'b1) ? 2'b00 : (hit_way1==1'b1) ? 2'b01 : (hit_way2==1'b1) ? 2'b10 : (hit_way2==1'b1) ? 2'b11 : lru_way; 
 
+assign word_mem2mshr = cnt_fetch;
+ 
 integer i, j;
 initial 
 begin
@@ -232,7 +234,7 @@ begin
             else if(way_hit == 2'b10) tagMem[index][68:46]  <= {1'b1,writeDirty,writeTag};
             else if(way_hit == 2'b11) tagMem[index][91:69]  <= {1'b1,writeDirty,writeTag};
                 
-            if(we_data == 1'b0)           readData <= dataMem[index][way];
+            if(we_data == 1'b0)           readData <= dataMem[data_index];
             else if(word_offset == 2'b00) dataMem[data_index][31 : 0]   <= writeData;
             else if(word_offset == 2'b01) dataMem[data_index][63 : 32]  <= writeData;
             else if(word_offset == 2'b10) dataMem[data_index][95 : 64]  <= writeData;
@@ -257,16 +259,28 @@ begin
     cnt_fetch_next  = cnt_fetch;
     writeDirty      = 1'b0;
     cache_req       = 1'b1;
+    we_data         = 1'b0;
+    we_tag          = 1'b0;
+    ack_cc2cpu      = 1'b0;
+    fetch_line      = 1'b0;
+    req_cc2mem      = 1'b0;
+    adr_cc2mem      = {ADR_WIDTH{1'b0}};
+    dat_cc2mshr     = {DATAMEM_WIDTH{1'b0}};
+    dat_cc2cpu      = {WORD_WIDTH{1'b0}};
+    writeData       = {WORD_WIDTH{1'b0}};
+    dat_mem2mshr    = {WORD_WIDTH{1'b0}};
+    writeTag        = {TAG_WIDTH{1'b0}};
+    
     
     case(ss)
     IDLE:
         begin
         
-            cache_req   = 1'b0;
-            we_data     = 1'b0;
-            we_tag      = 1'b0;
-            ack_cc2cpu  = 1'b0;
-            fetch_line  = 1'b0;
+            //cache_req   = 1'b0;
+            //we_data     = 1'b0;
+            //we_tag      = 1'b0;
+            //ack_cc2cpu  = 1'b0;
+            //fetch_line  = 1'b0;
             way         = lru_way;
         
             if(req_cpu2cc == 1'b1)
@@ -321,7 +335,7 @@ begin
                 
                 fetch_line      = 1'b1;
                 dat_mem2mshr    = dat_mem2cc;
-                word_mem2mshr   = cnt_fetch;
+                //word_mem2mshr   = cnt_fetch;
                 cnt_fetch_next  = cnt_fetch + 2'b01;
                 //possibile problema con scrittura cache con cnt_fetch, da verificare con tb
                 
@@ -355,8 +369,9 @@ begin
             begin
                 if(ack_mem2cc == 1'b1)
                 begin
+                     fetch_line     = 1'b1;
                     dat_mem2mshr    = dat_mem2cc;
-                    word_mem2mshr   = cnt_fetch;
+                    //word_mem2mshr   = cnt_fetch;
                     cnt_fetch_next  = cnt_fetch + 2'b01;
                     writeData       = dat_mem2cc;
                     we_data         = 1'b1;
@@ -365,7 +380,6 @@ begin
              end
              else
              begin
-                we_data = 1'b0;
                 ss_next = IDLE;
              end
         end
