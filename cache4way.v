@@ -22,17 +22,17 @@
 module cache4way
 #(
 
-    parameter WORD_WIDTH = 32,
-    parameter ADR_WIDTH = 32,
-    parameter INDEX_WIDTH = 7,
-    parameter TAG_WIDTH = 21,
+    parameter WORD_WIDTH        = 32,
+    parameter ADR_WIDTH         = 32,
+    parameter INDEX_WIDTH       = 7,
+    parameter TAG_WIDTH         = 21,
     parameter BYTE_OFFSET_WIDTH = 2,
     parameter WORD_OFFSET_WIDTH = 2,
-    parameter VALID_WIDTH = 1,
-    parameter DIRTY_WIDTH = 1,
-    parameter WORD_NUM = 4,
-    parameter CACHE_LINES = 128,
-    parameter WAY_NUM = 4
+    parameter VALID_WIDTH       = 1,
+    parameter DIRTY_WIDTH       = 1,
+    parameter WORD_NUM          = 4,
+    parameter CACHE_LINES       = 128,
+    parameter WAY_NUM           = 4
 )
 (
 
@@ -41,52 +41,48 @@ module cache4way
 
     // CPU
     //-------------------------//
-    input cpu_req_i,
-    input [ADR_WIDTH-1:0] cpu_adr_i,
-    input [WORD_WIDTH-1:0] cpu_dat_i,
-    input cpu_rdwr_i,
-    
-    output reg cpu_ack_o,
-    output reg [WORD_WIDTH-1:0] cpu_dat_o,
+    input                       req_cpu2cc,
+    input      [ADR_WIDTH-1:0]  adr_cpu2cc,
+    input      [WORD_WIDTH-1:0] dat_cpu2cc,
+    input                       rdwr_cpu2cc,
+    output reg                  ack_cc2cpu,
+    output reg [WORD_WIDTH-1:0] dat_cc2cpu,
 
     // MEM
     //-------------------------//
-    output reg mem_req_o,
-    output reg [ADR_WIDTH-1:0] mem_adr_o,
+    input                        ack_mem2cc,
+    input      [WORD_WIDTH-1:0]  dat_mem2cc,
+    output reg                   req_cc2mem,
+    output reg [ADR_WIDTH-1:0]   adr_cc2mem,
     
-    input mem_ack_i,
-    input [WORD_WIDTH-1:0] mem_dat_i,
-
     // MSHR
     //-------------------------//
-    output reg [WORD_WIDTH-1:0] mshr_load_dat_o,
-    output reg [WORD_OFFSET_WIDTH-1:0] mshr_load_word_o,
-    output reg [WORD_WIDTH-1:0] mshr_victim_dat_o,
-    output reg [WORD_OFFSET_WIDTH-1:0] mshr_victim_word_o
+    output reg [WORD_WIDTH-1:0]         dat_mem2mshr,
+    output reg [WORD_OFFSET_WIDTH-1:0]  word_mem2mshr,
+    output reg [DATAMEM_WIDTH-1:0]      dat_cc2mshr
     
 );
 
-localparam LRU_WIDTH = 2;
-localparam LRU_BEGIN = 93;
-localparam LRU_END = 92;
+localparam LRU_WIDTH             = 2;
+localparam LRU_BEGIN             = 93;
+localparam LRU_END               = 92;
 
-localparam ADR_TAG_BEGIN = 11;
-localparam ADR_TAG_END = 31;
-localparam ADR_INDEX_BEGIN = 4; 
-localparam ADR_INDEX_END = 10;
+localparam ADR_TAG_BEGIN         = 11;
+localparam ADR_TAG_END           = 31;
+localparam ADR_INDEX_BEGIN       = 4; 
+localparam ADR_INDEX_END         = 10;
 localparam ADR_WORD_OFFSET_BEGIN = 2;
-localparam ADR_WORD_OFFSET_END = 3;
+localparam ADR_WORD_OFFSET_END   = 3;
 localparam ADR_BYTE_OFFSET_BEGIN = 0;
-localparam ADR_BYTE_OFFSET_END = 1;
+localparam ADR_BYTE_OFFSET_END   = 1;
 
-localparam WORD_BEGIN = 32;
-localparam WORD_END = 1;
+localparam WORD_BEGIN            = 32;
+localparam WORD_END              = 1;
 
 localparam TAGWAY_WIDTH = VALID_WIDTH+DIRTY_WIDTH+TAG_WIDTH;
 localparam TAGMEM_WIDTH = TAGWAY_WIDTH*WAY_NUM;
-
 localparam DATAMEM_WIDTH = (WORD_WIDTH*WORD_NUM);
-
+localparam INDEX_WAY = INDEX_WIDTH+2;
  /*
 * Tag memory layout
 *            +------------------------------------------------------------------------------+
@@ -110,52 +106,74 @@ localparam IDLE=3'b000, LOOKUP=3'b001, HIT=3'b010, REFILL_BLOCKED=3'b011, REFILL
 
 reg [2:0] ss, ss_next;
 reg [1:0] cnt_fetch, cnt_fetch_next;
-reg [1:0] cnt_deload, cnt_deload_next;
 
-wire [TAG_WIDTH-1:0] tag;
-wire [INDEX_WIDTH-1:0] index;
+wire [TAG_WIDTH-1:0]         tag;
+wire [INDEX_WIDTH-1:0]       index;
 wire [WORD_OFFSET_WIDTH-1:0] word_offset;
 wire [BYTE_OFFSET_WIDTH-1:0] byte_offset;
 
-wire hit, hit_way0, hit_way1, hit_way2, hit_way3;
 wire [1:0] way_hit;
-wire valid, valid_way0, valid_way1, valid_way2, valid_way3;
-wire dirty_way0, dirty_way1, dirty_way2, dirty_way3;
-wire comp_tag_way0, comp_tag_way1, comp_tag_way2, comp_tag_way3;
-wire [TAG_WIDTH-1:0] tag_way0, tag_way1, tag_way2, tag_way3;
+wire       hit;
+wire       hit_way0;
+wire       hit_way1;
+wire       hit_way2;
+wire       hit_way3;
+
+wire valid_way0;
+wire valid_way1;
+wire valid_way2;
+wire valid_way3;
+
+wire dirty_way0;
+wire dirty_way1;
+wire dirty_way2;
+wire dirty_way3;
+
+wire comp_tag_way0;
+wire comp_tag_way1;
+wire comp_tag_way2;
+wire comp_tag_way3;
+
+wire [TAG_WIDTH-1:0] tag_way0;
+wire [TAG_WIDTH-1:0] tag_way1;
+wire [TAG_WIDTH-1:0] tag_way2;
+wire [TAG_WIDTH-1:0] tag_way3;
+
+wire [INDEX_WAY-1:0] data_index;
 
 reg [1:0] lru_way;
 reg [1:0] lru_value;
 
-reg deload_line;
 reg fetch_line;
-reg [WORD_OFFSET_WIDTH-1:0] word_deload;
 reg [WORD_WIDTH-1:0] data_read;
 
-reg [TAGMEM_WIDTH-1:0] tagMem [CACHE_LINES-1:0];
-reg [DATAMEM_WIDTH-1:0] dataMem [WAY_NUM-1:0][CACHE_LINES-1:0];
-reg [LRU_WIDTH-1:0] lruMem [WAY_NUM-1:0][CACHE_LINES-1:0];
-reg [LRU_WIDTH-1:0] lru_next [LRU_WIDTH-1:0];
+reg [TAGMEM_WIDTH-1:0]  tagMem   [CACHE_LINES-1:0];
+reg [DATAMEM_WIDTH-1:0] dataMem  [(WAY_NUM*CACHE_LINES)-1:0];
+reg [LRU_WIDTH-1:0]     lruMem   [(WAY_NUM*CACHE_LINES)-1:0];
+reg [LRU_WIDTH-1:0]     lru_next [LRU_WIDTH-1:0];
 
-reg [TAGMEM_WIDTH-1:0] readTag;
-reg [TAG_WIDTH-1:0] writeTag;
+reg [TAGMEM_WIDTH-1:0]  readTag;
+reg [TAG_WIDTH-1:0]     writeTag;
 reg [DATAMEM_WIDTH-1:0] readData;
-reg [WORD_WIDTH-1:0] writeData;
-reg writeDirty;
-reg writeValid=1'b1;
-reg we_tag, we_data;
-reg [1:0] way;
+reg [WORD_WIDTH-1:0]    writeData;
+reg                     writeDirty;
+reg                     we_tag;
+reg                     we_data;
+reg                     cache_req;
+reg [1:0]               way;
 
-assign tag = cpu_adr_i[ADR_TAG_END : ADR_TAG_BEGIN];
-assign index = cpu_adr_i[ADR_INDEX_END : ADR_INDEX_BEGIN];
-assign word_offset = (fetch_line==1'b0) ? cpu_adr_i[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN] : cnt_fetch;
-assign byte_offset = cpu_adr_i[ADR_BYTE_OFFSET_END : ADR_BYTE_OFFSET_BEGIN]; //00
+
+assign tag          = adr_cpu2cc[ADR_TAG_END : ADR_TAG_BEGIN];
+assign index        = adr_cpu2cc[ADR_INDEX_END : ADR_INDEX_BEGIN];
+assign word_offset  = (fetch_line==1'b0) ? adr_cpu2cc[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN] : cnt_fetch;
+assign byte_offset  = adr_cpu2cc[ADR_BYTE_OFFSET_END : ADR_BYTE_OFFSET_BEGIN]; //00
+assign data_index   = {index,way};
 
 assign valid_way0 = readTag[22];
 assign valid_way1 = readTag[45];
 assign valid_way2 = readTag[68];
 assign valid_way3 = readTag[91];
-assign valid = valid_way0 & valid_way1 & valid_way2 & valid_way3;
+assign valid      = valid_way0 & valid_way1 & valid_way2 & valid_way3;
 
 assign dirty_way0 = readTag[21];
 assign dirty_way1 = readTag[44];
@@ -182,104 +200,76 @@ assign hit = hit_way0 | hit_way1 | hit_way2 | hit_way3;
 assign way_hit = (hit_way0==1'b1) ? 2'b00 : (hit_way1==1'b1) ? 2'b01 : (hit_way2==1'b1) ? 2'b10 : (hit_way2==1'b1) ? 2'b11 : lru_way; 
 
 integer i, j;
-initial begin
+initial 
+begin
 lru_way=2'b00;
     for(i = 0; i <CACHE_LINES; i=i+1) 
-        begin
-            tagMem[i]={1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}}};
-            for (j = 0; j<WAY_NUM ; j=j+1)
-            begin
-                dataMem[j][i]={DATAMEM_WIDTH{1'b0}};
-                
-                lruMem[j][i]={LRU_WIDTH{1'b0}};
-            end
-        end
-   end
+    begin
+        tagMem[i]={1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}}};
+    end
+    for(i = 0; i <CACHE_LINES*WAY_NUM; i=i+1)
+    begin   
+       dataMem[i] = {DATAMEM_WIDTH{1'b0}};  
+       lruMem[i]  = 2'b11;   
+    end         
+end
 
 always@(posedge clk)
 begin
     if(rst)
     begin
-        ss <= IDLE;
-        cnt_fetch <= 2'b00;
-        cnt_deload <= 2'b00;
+        ss          <= IDLE;
+        cnt_fetch   <= 2'b00;
     end
     else
     begin
     
-        if(cpu_req_i == 1'b1) //Da mettere?
+        if(cache_req == 1'b1) //Da mettere?
         begin
-            if(we_tag == 1'b0) readTag <= tagMem[index];
-            else
-                if(way_hit == 2'b00) tagMem[index][22:0] <= {1'b1,writeDirty,writeTag};
-                else if(way_hit == 2'b01) tagMem[index][45:23] <= {1'b1,writeDirty,writeTag};
-                else if(way_hit == 2'b10) tagMem[index][68:46] <= {1'b1,writeDirty,writeTag};
-                else if(way_hit == 2'b11) tagMem[index][91:69] <= {1'b1,writeDirty,writeTag};
+            if(we_tag == 1'b0)        readTag <= tagMem[index];
+            else if(way_hit == 2'b00) tagMem[index][22:0]   <= {1'b1,writeDirty,writeTag};
+            else if(way_hit == 2'b01) tagMem[index][45:23]  <= {1'b1,writeDirty,writeTag};
+            else if(way_hit == 2'b10) tagMem[index][68:46]  <= {1'b1,writeDirty,writeTag};
+            else if(way_hit == 2'b11) tagMem[index][91:69]  <= {1'b1,writeDirty,writeTag};
                 
-            if(we_data == 1'b0) readData <= dataMem[index][way];
-            else if(word_offset == 2'b00) dataMem[index][way][31 : 0] <= writeData;
-                else if(word_offset == 2'b01) dataMem[index][way][63 : 32] <= writeData;
-                else if(word_offset == 2'b10) dataMem[index][way][95 : 64] <= writeData;
-                else if(word_offset == 2'b11) dataMem[index][way][127 : 96] <= writeData;
+            if(we_data == 1'b0)           readData <= dataMem[index][way];
+            else if(word_offset == 2'b00) dataMem[data_index][31 : 0]   <= writeData;
+            else if(word_offset == 2'b01) dataMem[data_index][63 : 32]  <= writeData;
+            else if(word_offset == 2'b10) dataMem[data_index][95 : 64]  <= writeData;
+            else if(word_offset == 2'b11) dataMem[data_index][127 : 96] <= writeData;
         end
-        
-        
-        /*if(cpu_req_i == 1'b1)
-        begin
-            if(we_tag == 1'b0) readTag <= tagMem[index];
-            else
-                if(way_hit == 2'b00) tagMem[index][22:0] <= {writeValid,writeDirty,writeTag};
-                else if(way_hit == 2'b01) tagMem[index][45:23] <= {writeValid,writeDirty,writeTag};
-                else if(way_hit == 2'b10) tagMem[index][68:46] <= {writeValid,writeDirty,writeTag};
-                else if(way_hit == 2'b11) tagMem[index][91:69] <= {writeValid,writeDirty,writeTag};
-                else if(!valid_way0) 
-                begin
-                    tagMem[index][20:0] <= writeTag;
-                    tagMem[index][21:21] <= writeDirty;
-                    tagMem[index][22:22] <= writeValid;
-                end
-                else if(!valid_way1) tagMem[index][45:23] <= {writeValid,writeDirty,writeTag}; 
-                else if(!valid_way2) tagMem[index][68:46] <= {writeValid,writeDirty,writeTag}; 
-                else if(!valid_way3) tagMem[index][91:69] <= {writeValid,writeDirty,writeTag};
-                
-            if(we_data == 1'b0) readData <= dataMem[index][way];
-            else
-                if(word_offset == 2'b00) dataMem[index][way_hit][31 : 0] <= writeData;
-                else if(word_offset == 2'b01) dataMem[index][way_hit][63 : 32] <= writeData;
-                else if(word_offset == 2'b10) dataMem[index][way_hit][95 : 64] <= writeData;
-                else if(word_offset == 2'b11) dataMem[index][way_hit][127 : 96] <= writeData;
-        end
-        */
-        
    
-        ss <= ss_next;
-        cnt_fetch <= cnt_fetch_next; 
-        cnt_deload <= cnt_deload_next;
+        ss          <= ss_next;
+        cnt_fetch   <= cnt_fetch_next; 
         
         for(i=0; i<WAY_NUM; i=i+1)
         begin
             lruMem[index][i] <= lru_next[i];
         end
+        
     end
 end
 
 always@(*)
 begin
-    ss_next=ss;
-    cnt_fetch_next=cnt_fetch;
-    cnt_deload_next=cnt_deload;
+
+    ss_next         = ss;
+    cnt_fetch_next  = cnt_fetch;
+    writeDirty      = 1'b0;
+    cache_req       = 1'b1;
+    
     case(ss)
     IDLE:
         begin
         
-            we_data = 1'b0;
-            we_tag = 1'b0;
-            cpu_ack_o = 1'b0;
-            deload_line = 1'b0;
-            fetch_line = 1'b0;
-            way = lru_way;
+            cache_req   = 1'b0;
+            we_data     = 1'b0;
+            we_tag      = 1'b0;
+            ack_cc2cpu  = 1'b0;
+            fetch_line  = 1'b0;
+            way         = lru_way;
         
-            if(cpu_req_i==1'b1)
+            if(req_cpu2cc == 1'b1)
             begin
                 ss_next = LOOKUP;
             end
@@ -289,138 +279,88 @@ begin
             if(hit)
             begin
             
-                way = way_hit;
+                way     = way_hit;
                 ss_next = HIT;
                 
              end
-             else// MISS REPLACE
+             else // MISS REPLACE
              begin
                  ss_next = REFILL_BLOCKED;
                  
                  //Forward request toward the memory
                  //---------------------------------//
-                 mem_req_o = 1'b1;
-                 mem_adr_o = cpu_adr_i;
+                 req_cc2mem     = 1'b1;
+                 adr_cc2mem     = adr_cpu2cc;
                  cnt_fetch_next = word_offset; 
-                 //mem_adr_o = {cpu_adr_i[31:4],word_offset,2'b00};
                  
-                 //Data read contiene la linea da scaricare 
-                 case(word_offset)
-                 2'b00: mshr_victim_dat_o = readData[95 : 64];
-                 2'b01: mshr_victim_dat_o = readData[63 : 32];
-                 2'b10: mshr_victim_dat_o = readData[95 : 64];
-                 2'b11: mshr_victim_dat_o = readData[127 : 96];
-                 endcase
-                 mshr_victim_word_o = word_offset;
-                 
-                 cnt_deload_next = cpu_adr_i[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN] + 2'b01;
+                 //Deload
+                 dat_cc2mshr = readData;
              end
         end     
     HIT:
         begin
-            if(cpu_rdwr_i == 1'b0) cpu_dat_o = readData;
+            if(rdwr_cpu2cc == 1'b0) dat_cc2cpu = readData;
             else 
             begin
                 // Da verificare che scriva davvero o il we_data venga resettato in idle e non faccia in tempo a scrivere
-                we_data = 1'b1;
-                writeData = cpu_dat_i;
-                we_tag = 1'b1;
-                writeDirty = 1'b1;     
+                we_data     = 1'b1;
+                writeData   = dat_cpu2cc;
+                we_tag      = 1'b1;
+                writeDirty  = 1'b1;     
             end
-            cpu_ack_o = 1'b1;
             
-            ss_next = IDLE;
+            ack_cc2cpu  = 1'b1;
+            ss_next     = IDLE;
+            
         end
     REFILL_BLOCKED:
         begin
-            if(cnt_deload != cpu_adr_i[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN])
+        
+            if(ack_mem2cc == 1'b1)
             begin
-                case(cnt_deload)
-                2'b00: mshr_victim_dat_o = readData[95 : 64];
-                2'b01: mshr_victim_dat_o = readData[63 : 32];
-                2'b10: mshr_victim_dat_o = readData[95 : 64];
-                2'b11: mshr_victim_dat_o = readData[127 : 96];
-                endcase
-                mshr_victim_word_o = cnt_deload;
-                cnt_deload_next = cnt_deload + 2'b01;
-            end
-            else
-                if(mem_ack_i == 1'b1)
-                begin
-                    fetch_line = 1'b1;
-                    mshr_load_dat_o = mem_dat_i;
-                    mshr_load_word_o = cnt_fetch;
-                    cnt_fetch_next = cnt_fetch + 2'b01;
-                    //possibile problema con scrittura cache con cnt_fetch, da verificare con tb
-                    
-                    writeData = mem_dat_i;
-                    we_data = 1'b1;
-                    we_tag = 1'b1;
-                    writeDirty = 1'b0;
-                    writeTag = tag; // <- problema scrittura del tag corretto 
-                    
-                    // WRITE/HIT MISS HANDLE
-                    if(cpu_rdwr_i==1'b0)
-                        cpu_dat_o = mem_dat_i;
-                    else
-                    begin
-                        writeData = cpu_dat_i;
-                        writeDirty = 1'b1;
-                    end
-                    cpu_ack_o = 1'b1;
-                    
-                    //nuova richiesta    
-                    mem_adr_o = {cpu_adr_i[31:4],cnt_fetch_next,2'b00};
-                    ss_next = REFILL;
-                end
-        end
-    
-   /* DISCARD:
-        begin
-            we_tag = 1'b1;
-            writeDirty = 1'b0;
-            writeTag = tag;
-            if(mem_ack_i == 1'b1)
-            begin
-                fetch_line = 1'b1;
-                we_tag = 1'b0;
-                ss_next = REFILL;
-                mshr_load_dat_o = mem_dat_i;
-                mshr_load_word_o = cnt_fetch;
-                cnt_fetch_next = cnt_fetch + 2'b01;
-                            //possibile problema con scrittura cache con cnt_fetch, da verificare con tb
                 
-                writeData = mem_dat_i;
-                we_data = 1'b1;          
-                            // WRITE/HIT MISS HANDLE
-                if(cpu_rdwr_i==1'b0)
-                cpu_dat_o = mem_dat_i;
+                fetch_line      = 1'b1;
+                dat_mem2mshr    = dat_mem2cc;
+                word_mem2mshr   = cnt_fetch;
+                cnt_fetch_next  = cnt_fetch + 2'b01;
+                //possibile problema con scrittura cache con cnt_fetch, da verificare con tb
+                
+                writeData   = dat_mem2cc;
+                we_data     = 1'b1;
+                we_tag      = 1'b1;
+                writeDirty  = 1'b0;
+                writeTag    = tag; // <- problema scrittura del tag corretto 
+                
+                // WRITE/HIT MISS HANDLE
+                if(rdwr_cpu2cc == 1'b0)
+                    dat_cc2cpu = dat_mem2cc;
                 else
                 begin
-                    writeData = cpu_dat_i;
-                    writeDirty = 1'b1;
+                    writeData   = dat_cpu2cc;
+                    writeDirty  = 1'b1;
                 end
-                cpu_ack_o = 1'b1;
-                            
-               //nuova richiesta    
-                mem_adr_o = {cpu_adr_i[31:4],cnt_fetch_next,2'b00};
-                 
-           end
-     end
-  */      
+                
+                ack_cc2cpu = 1'b1;
+                
+                //nuova richiesta    
+                adr_cc2mem  = {adr_cpu2cc[31:4],cnt_fetch_next,2'b00};
+                ss_next     = REFILL;
+            
+            end
+        end
     REFILL:
         begin
         
-            if(cnt_fetch != cpu_adr_i[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN])
+            if(cnt_fetch != adr_cpu2cc[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN])
             begin
-                if(mem_ack_i == 1'b1)
+                if(ack_mem2cc == 1'b1)
                 begin
-                    mshr_load_dat_o = mem_dat_i;
-                    mshr_load_word_o = cnt_fetch;
-                    cnt_fetch_next = cnt_fetch + 2'b01;
-                    writeData = mem_dat_i;
-                    we_data = 1'b1;
-                    mem_adr_o = {cpu_adr_i[31:4],cnt_fetch_next,2'b00};
+                    dat_mem2mshr    = dat_mem2cc;
+                    word_mem2mshr   = cnt_fetch;
+                    cnt_fetch_next  = cnt_fetch + 2'b01;
+                    writeData       = dat_mem2cc;
+                    we_data         = 1'b1;
+                    adr_cc2mem      = {adr_cpu2cc[31:4],cnt_fetch_next,2'b00};
                 end
              end
              else
@@ -439,21 +379,21 @@ begin
     begin
         for(i=0; i<WAY_NUM; i=i+1)
         begin
-            if(lruMem[index][i]==lruMem[index][way_hit])
+            if(lruMem[index][i] == lruMem[index][way_hit])
                     lru_next[i] = 2'b00;
                 else if(lruMem[index][way_hit] < lruMem[index][i])
                     lru_next[i] = lruMem[index][i] + 2'b01; 
         end
            
-        lru_value=2'b00;
-        lru_way=2'b00;
+        lru_value = 2'b00;
+        lru_way   = 2'b00;
         
         for(i=0; i<WAY_NUM; i=i+1)
         begin
             if(lru_value < lru_next[i])
             begin
                 lru_value = lru_next[i];
-                lru_way = i;
+                lru_way   = i;
             end
         end
     end
