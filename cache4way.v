@@ -63,10 +63,20 @@ module cache4way
     
 );
 
+//---------------------------------------------------------//
+// LOCAL PARAMETER DEFINITION
+//---------------------------------------------------------//
+
+// WIDTH
 localparam LRU_WIDTH             = 2;
+localparam TAGWAY_WIDTH          = VALID_WIDTH+DIRTY_WIDTH+TAG_WIDTH;
+localparam TAGMEM_WIDTH          = TAGWAY_WIDTH*WAY_NUM;
+localparam DATAMEM_WIDTH         = (WORD_WIDTH*WORD_NUM);
+localparam INDEX_WAY             = INDEX_WIDTH+2;
+
+// ADR OFFSET
 localparam LRU_BEGIN             = 93;
 localparam LRU_END               = 92;
-
 localparam ADR_TAG_BEGIN         = 11;
 localparam ADR_TAG_END           = 31;
 localparam ADR_INDEX_BEGIN       = 4; 
@@ -75,14 +85,11 @@ localparam ADR_WORD_OFFSET_BEGIN = 2;
 localparam ADR_WORD_OFFSET_END   = 3;
 localparam ADR_BYTE_OFFSET_BEGIN = 0;
 localparam ADR_BYTE_OFFSET_END   = 1;
-
 localparam WORD_BEGIN            = 32;
 localparam WORD_END              = 1;
 
-localparam TAGWAY_WIDTH = VALID_WIDTH+DIRTY_WIDTH+TAG_WIDTH;
-localparam TAGMEM_WIDTH = TAGWAY_WIDTH*WAY_NUM;
-localparam DATAMEM_WIDTH = (WORD_WIDTH*WORD_NUM);
-localparam INDEX_WAY = INDEX_WIDTH+2;
+// FSM STATES
+localparam IDLE=3'b000, LOOKUP=3'b001, HIT=3'b010, REFILL_BLOCKED=3'b011, REFILL=3'b100;
 
  /*
 * Tag memory layout
@@ -103,120 +110,143 @@ localparam INDEX_WAY = INDEX_WIDTH+2;
 *            +-----------------------------------+     -+
 */
 
-localparam IDLE=3'b000, LOOKUP=3'b001, HIT=3'b010, REFILL_BLOCKED=3'b011, REFILL=3'b100;
+//---------------------------------------------------------//
+// REGISTER / WIRE DEFINITION
+//---------------------------------------------------------//
 
-reg [2:0] ss, ss_next;
-reg [1:0] cnt_fetch, cnt_fetch_next;
+reg [2:0]               ss, ss_next;
+reg [1:0]               cnt_fetch, cnt_fetch_next;
+
+reg [TAGMEM_WIDTH-1:0]  readTag;
+reg [TAG_WIDTH-1:0]     writeTag;
+reg [DATAMEM_WIDTH-1:0] readData;
+reg [WORD_WIDTH-1:0]    writeData;
+
+reg                     writeDirty;
+reg                     we_tag;
+reg                     we_data;
+reg                     cache_req;
+reg                     fetch_line;
+reg [1:0]               way;
+
+reg [TAGMEM_WIDTH-1:0]  tagMem   [CACHE_LINES-1:0];
+reg [DATAMEM_WIDTH-1:0] dataMem  [(WAY_NUM*CACHE_LINES)-1:0];
+
+reg [LRU_WIDTH-1:0]     lruMem   [(WAY_NUM*CACHE_LINES)-1:0];
+reg [LRU_WIDTH-1:0]     lru_next [WAY_NUM-1:0];
+reg [1:0]               lru_way;
+reg [1:0]               lru_value;
+reg                     update_lru;
+
 
 wire [TAG_WIDTH-1:0]         tag;
 wire [INDEX_WIDTH-1:0]       index;
 wire [WORD_OFFSET_WIDTH-1:0] word_offset;
 wire [BYTE_OFFSET_WIDTH-1:0] byte_offset;
 
-wire [1:0] way_hit;
-wire       hit;
-wire       hit_way0;
-wire       hit_way1;
-wire       hit_way2;
-wire       hit_way3;
+wire [1:0]                   way_hit;
+wire                         hit;
+wire                         hit_way0;
+wire                         hit_way1;
+wire                         hit_way2;
+wire                         hit_way3;
 
-wire valid_way0;
-wire valid_way1;
-wire valid_way2;
-wire valid_way3;
+wire                         valid_way0;
+wire                         valid_way1;
+wire                         valid_way2;
+wire                         valid_way3;
 
-wire dirty_way0;
-wire dirty_way1;
-wire dirty_way2;
-wire dirty_way3;
+wire                         dirty_way0;
+wire                         dirty_way1;
+wire                         dirty_way2;
+wire                         dirty_way3;
 
-wire comp_tag_way0;
-wire comp_tag_way1;
-wire comp_tag_way2;
-wire comp_tag_way3;
+wire                         comp_tag_way0;
+wire                         comp_tag_way1;
+wire                         comp_tag_way2;
+wire                         comp_tag_way3;
 
-wire [TAG_WIDTH-1:0] tag_way0;
-wire [TAG_WIDTH-1:0] tag_way1;
-wire [TAG_WIDTH-1:0] tag_way2;
-wire [TAG_WIDTH-1:0] tag_way3;
+wire [TAG_WIDTH-1:0]         tag_way0;
+wire [TAG_WIDTH-1:0]         tag_way1;
+wire [TAG_WIDTH-1:0]         tag_way2;
+wire [TAG_WIDTH-1:0]         tag_way3;
 
-wire [INDEX_WAY-1:0] data_index;
+wire [INDEX_WAY-1:0]         data_index;
 
-reg [1:0] lru_way;
-reg [1:0] lru_value;
+integer i, j;
 
-reg fetch_line;
+//---------------------------------------------------------//
+// CONTINUOUS ASSIGNMENTS
+//---------------------------------------------------------//
 
-reg [TAGMEM_WIDTH-1:0]  tagMem   [CACHE_LINES-1:0];
-reg [DATAMEM_WIDTH-1:0] dataMem  [(WAY_NUM*CACHE_LINES)-1:0];
-reg [(LRU_WIDTH*WAY_NUM)-1:0]     lruMem   [CACHE_LINES-1:0];
-reg [LRU_WIDTH-1:0]     lru_next [WAY_NUM-1:0];
+assign tag           = adr_cpu2cc[ADR_TAG_END : ADR_TAG_BEGIN];
+assign index         = adr_cpu2cc[ADR_INDEX_END : ADR_INDEX_BEGIN];
+assign word_offset   = (fetch_line==1'b0) ? adr_cpu2cc[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN] : cnt_fetch;
+assign byte_offset   = adr_cpu2cc[ADR_BYTE_OFFSET_END : ADR_BYTE_OFFSET_BEGIN]; //00
+assign data_index    = {index,way};
 
-reg [TAGMEM_WIDTH-1:0]  readTag;
-reg [TAG_WIDTH-1:0]     writeTag;
-reg [DATAMEM_WIDTH-1:0] readData;
-reg [WORD_WIDTH-1:0]    writeData;
-reg                     writeDirty;
-reg                     we_tag;
-reg                     we_data;
-reg                     cache_req;
-reg [1:0]               way;
-reg                     update_lru;
+assign valid_way0    = readTag[22];
+assign valid_way1    = readTag[45];
+assign valid_way2    = readTag[68];
+assign valid_way3    = readTag[91];
 
-assign tag          = adr_cpu2cc[ADR_TAG_END : ADR_TAG_BEGIN];
-assign index        = adr_cpu2cc[ADR_INDEX_END : ADR_INDEX_BEGIN];
-assign word_offset  = (fetch_line==1'b0) ? adr_cpu2cc[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN] : cnt_fetch;
-assign byte_offset  = adr_cpu2cc[ADR_BYTE_OFFSET_END : ADR_BYTE_OFFSET_BEGIN]; //00
-assign data_index   = {index,way};
+assign dirty_way0    = readTag[21];
+assign dirty_way1    = readTag[44];
+assign dirty_way2    = readTag[67];
+assign dirty_way3    = readTag[90];
 
-assign valid_way0 = readTag[22];
-assign valid_way1 = readTag[45];
-assign valid_way2 = readTag[68];
-assign valid_way3 = readTag[91];
-
-assign dirty_way0 = readTag[21];
-assign dirty_way1 = readTag[44];
-assign dirty_way2 = readTag[67];
-assign dirty_way3 = readTag[90];
-
-assign tag_way0 = readTag[20:0];
-assign tag_way1 = readTag[43:23];
-assign tag_way2 = readTag[66:46];
-assign tag_way3 = readTag[89:69];
+assign tag_way0      = readTag[20:0];
+assign tag_way1      = readTag[43:23];
+assign tag_way2      = readTag[66:46];
+assign tag_way3      = readTag[89:69];
 
 assign comp_tag_way0 = (tag_way0 == tag);
 assign comp_tag_way1 = (tag_way1 == tag);
 assign comp_tag_way2 = (tag_way2 == tag);
 assign comp_tag_way3 = (tag_way3 == tag);
 
-assign hit_way0 = comp_tag_way0 & valid_way0;
-assign hit_way1 = comp_tag_way1 & valid_way1;
-assign hit_way2 = comp_tag_way2 & valid_way2;
-assign hit_way3 = comp_tag_way3 & valid_way3;
+assign hit_way0      = comp_tag_way0 & valid_way0;
+assign hit_way1      = comp_tag_way1 & valid_way1;
+assign hit_way2      = comp_tag_way2 & valid_way2;
+assign hit_way3      = comp_tag_way3 & valid_way3;
 
-assign hit = hit_way0 | hit_way1 | hit_way2 | hit_way3;
+assign hit           = hit_way0 | hit_way1 | hit_way2 | hit_way3;
 
-assign way_hit = (hit_way0==1'b1) ? 2'b00 : (hit_way1==1'b1) ? 2'b01 : (hit_way2==1'b1) ? 2'b10 : (hit_way2==1'b1) ? 2'b11 : lru_way; 
+assign way_hit       = (hit_way0==1'b1) ? 2'b00 
+                     : (hit_way1==1'b1) ? 2'b01 
+                     : (hit_way2==1'b1) ? 2'b10 
+                     : (hit_way2==1'b1) ? 2'b11 
+                     : lru_way; 
 
 assign word_mem2mshr = cnt_fetch;
- 
-integer i, j;
+
+//---------------------------------------------------------//
+// INITIAL BLOCK
+//---------------------------------------------------------// 
 initial 
 begin
-lru_way=2'b00;
+
+    lru_way = 2'b00;
+    
     for(i = 0; i <CACHE_LINES; i=i+1) 
     begin
-        tagMem[i]={1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}}};
-        lruMem[i]={2'b10,2'b10,2'b10,2'b10};
+        tagMem[i] = {1'b1,1'b0,{TAG_WIDTH{1'b0}},
+                     1'b1,1'b0,{TAG_WIDTH{1'b0}},
+                     1'b1,1'b0,{TAG_WIDTH{1'b0}},
+                     1'b1,1'b0,{TAG_WIDTH{1'b0}}
+                    };
+        lruMem[i] = {2'b10,2'b10,2'b10,2'b10};
     end
     for(i = 0; i <CACHE_LINES*WAY_NUM; i=i+1)
     begin   
        dataMem[i] = {DATAMEM_WIDTH{1'b0}};    
-    end         
+    end   
+          
 end
 
 always@(posedge clk)
 begin
+
     if(rst)
     begin
         ss          <= IDLE;
@@ -225,15 +255,15 @@ begin
     else
     begin
     
-        if(cache_req == 1'b1) //Da mettere?
+        if(cache_req == 1'b1)
         begin
-            if(we_tag == 1'b0)        readTag <= tagMem[index];
-            else if(way_hit == 2'b00) tagMem[index][22:0]   <= {1'b1,writeDirty,writeTag};
-            else if(way_hit == 2'b01) tagMem[index][45:23]  <= {1'b1,writeDirty,writeTag};
-            else if(way_hit == 2'b10) tagMem[index][68:46]  <= {1'b1,writeDirty,writeTag};
-            else if(way_hit == 2'b11) tagMem[index][91:69]  <= {1'b1,writeDirty,writeTag};
+            if(we_tag == 1'b0)            readTag                       <= tagMem[index];
+            else if(way_hit == 2'b00)     tagMem[index][22:0]           <= {1'b1,writeDirty,writeTag};
+            else if(way_hit == 2'b01)     tagMem[index][45:23]          <= {1'b1,writeDirty,writeTag};
+            else if(way_hit == 2'b10)     tagMem[index][68:46]          <= {1'b1,writeDirty,writeTag};
+            else if(way_hit == 2'b11)     tagMem[index][91:69]          <= {1'b1,writeDirty,writeTag};
                 
-            if(we_data == 1'b0)           readData <= dataMem[data_index];
+            if(we_data == 1'b0)           readData                      <= dataMem[data_index];
             else if(word_offset == 2'b00) dataMem[data_index][31 : 0]   <= writeData;
             else if(word_offset == 2'b01) dataMem[data_index][63 : 32]  <= writeData;
             else if(word_offset == 2'b10) dataMem[data_index][95 : 64]  <= writeData;
@@ -275,16 +305,18 @@ begin
     IDLE:
         begin
             
-            way         = lru_way;
+            way = lru_way;
         
             if(req_cpu2cc == 1'b1)
             begin
                 update_lru  = 1'b1;
-                ss_next = LOOKUP;
+                ss_next     = LOOKUP;
             end
+            
         end
     LOOKUP:
         begin
+        
             if(hit)
             begin
                 
@@ -294,7 +326,7 @@ begin
              end
              else // MISS REPLACE
              begin
-                 ss_next = REFILL_BLOCKED;
+                 ss_next        = REFILL_BLOCKED;
                  
                  //Forward request toward the memory
                  //---------------------------------//
@@ -303,23 +335,25 @@ begin
                  cnt_fetch_next = word_offset; 
                  
                  //Deload
-                 dat_cc2mshr = readData;
+                 dat_cc2mshr    = readData;
              end
+             
         end     
     HIT:
         begin
-            if(rdwr_cpu2cc == 1'b0) dat_cc2cpu = readData;
+        
+            if(rdwr_cpu2cc == 1'b0) 
+                dat_cc2cpu  = readData;
             else 
             begin
-                // Da verificare che scriva davvero o il we_data venga resettato in idle e non faccia in tempo a scrivere
                 we_data     = 1'b1;
                 writeData   = dat_cpu2cc;
                 we_tag      = 1'b1;
                 writeDirty  = 1'b1;     
             end
             
-            ack_cc2cpu  = 1'b1;
-            ss_next     = IDLE;
+            ack_cc2cpu      = 1'b1;
+            ss_next         = IDLE;
             
         end
     REFILL_BLOCKED:
@@ -330,30 +364,28 @@ begin
                 
                 fetch_line      = 1'b1;
                 dat_mem2mshr    = dat_mem2cc;
-                //word_mem2mshr   = cnt_fetch;
                 cnt_fetch_next  = cnt_fetch + 2'b01;
-                //possibile problema con scrittura cache con cnt_fetch, da verificare con tb
                 
-                writeData   = dat_mem2cc;
-                we_data     = 1'b1;
-                we_tag      = 1'b1;
-                writeDirty  = 1'b0;
-                writeTag    = tag; // <- problema scrittura del tag corretto 
+                writeData       = dat_mem2cc;
+                we_data         = 1'b1;
+                we_tag          = 1'b1;
+                writeDirty      = 1'b0;
+                writeTag        = tag;
                 
                 // WRITE/HIT MISS HANDLE
                 if(rdwr_cpu2cc == 1'b0)
-                    dat_cc2cpu = dat_mem2cc;
+                    dat_cc2cpu  = dat_mem2cc;
                 else
                 begin
                     writeData   = dat_cpu2cc;
                     writeDirty  = 1'b1;
                 end
                 
-                ack_cc2cpu = 1'b1;
+                ack_cc2cpu      = 1'b1;
                 
                 //nuova richiesta    
-                adr_cc2mem  = {adr_cpu2cc[31:4],cnt_fetch_next,2'b00};
-                ss_next     = REFILL;
+                adr_cc2mem      = {adr_cpu2cc[31:4],cnt_fetch_next,2'b00};
+                ss_next         = REFILL;
             
             end
         end
@@ -366,7 +398,6 @@ begin
                 begin
                      fetch_line     = 1'b1;
                     dat_mem2mshr    = dat_mem2cc;
-                    //word_mem2mshr   = cnt_fetch;
                     cnt_fetch_next  = cnt_fetch + 2'b01;
                     writeData       = dat_mem2cc;
                     we_data         = 1'b1;
@@ -383,6 +414,7 @@ begin
     //update LRU
     if(update_lru)
     begin
+    
         for(i=0; i<WAY_NUM; i=i+1)
         begin
             if(lruMem[index][i] == lruMem[index][way_hit])
@@ -402,6 +434,7 @@ begin
                 lru_way   = i;
             end
         end
+        
     end
     
 end
