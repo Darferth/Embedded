@@ -24,7 +24,6 @@ module cache_tb#
     parameter DATA_WIDTH    =   32,
     parameter WORD_OFFSET   =    2
 )
-
 ();
 
         //CONTROL SIGNALS
@@ -66,10 +65,10 @@ begin
     rst         <=      1'b1;
     
     #10
-    
     rst         <=      1'b0;
-    
     #10
+    
+    /*
     adr_cpu2cc  <=      32'b00000000110011000011101101000000;
     rdwr_cpu2cc <=      1'b0;
     req_cpu2cc  <=      1'b1;
@@ -98,7 +97,6 @@ begin
     
     #40
     
-    /*READ REQUEST HIT, READS THE WORD REQUESTED*/
     adr_cpu2cc  <=      32'b00000000110011000011101101000000;
     rdwr_cpu2cc <=      1'b1;
     req_cpu2cc  <=      1'b1;
@@ -108,6 +106,89 @@ begin
     
     req_cpu2cc  <=      1'b0;
     
+    #40
+    
+    adr_cpu2cc  <=      32'b11111111000001111011110100001000;
+    rdwr_cpu2cc <=      1'b1;
+    req_cpu2cc  <=      1'b1;
+    dat_cpu2cc<=        32'b11001100110011001100110011001100; 
+    #40
+    ack_mem2cc  <=      1'b1;
+    dat_mem2cc  <=      32'b01001111010100001111010100010101;
+    #10
+    ack_mem2cc  <=      1'b0;
+    #10
+    ack_mem2cc  <=      1'b1;
+    dat_mem2cc  <=      32'b11111111110000000000100000000100;
+    #10
+    ack_mem2cc  <=      1'b0;
+    #10
+    ack_mem2cc  <=      1'b1;
+    dat_mem2cc  <=      32'b11111000100101010001010100000101;
+    #10
+    ack_mem2cc  <=      1'b0;
+    #10
+    ack_mem2cc  <=      1'b1;
+    dat_mem2cc  <=      32'b11101000111110010101011111100101;
+    #10
+    ack_mem2cc  <=      1'b0;
+    #5 
+        
+    req_cpu2cc  <=      1'b0;
+    */
+    
+    adr_cpu2cc  <=      32'b11111111000001111011110100001000;
+    rdwr_cpu2cc <=      1'b1;
+    req_cpu2cc  <=      1'b1;
+    dat_cpu2cc<=        32'b00000001010111111101111100011110;
+    #55
+    ack_mem2cc  <=      1'b1;
+    dat_mem2cc  <=      32'b11110101010011001101010010100101;
+    #10
+    ack_mem2cc  <=      1'b0;
+    #30
+    ack_mem2cc  <=      1'b1;
+    dat_mem2cc  <=      32'b11110101010011001101010010111101;
+    #10
+    ack_mem2cc  <=      1'b0;
+    #30
+    ack_mem2cc  <=      1'b1;
+    dat_mem2cc  <=      32'b11110101010011001011010010100101;
+    #10
+    ack_mem2cc  <=      1'b0;
+    #30
+    ack_mem2cc  <=      1'b1;
+    dat_mem2cc  <=      32'b11110101010000001101010010100101;
+    #10
+    ack_mem2cc  <=      1'b0;
+    #5
+    req_cpu2cc  <=      1'b0;
+    #40
+    adr_cpu2cc  <=      32'b00010101100010101010110100001000;
+    rdwr_cpu2cc <=      1'b1;
+    req_cpu2cc  <=      1'b1;
+    dat_cpu2cc<=        32'b11001100110011001100110011001100; 
+    #40
+    ack_mem2cc  <=      1'b1;
+    dat_mem2cc  <=      32'b01001111010100001111010100010101;
+    #10
+    ack_mem2cc  <=      1'b0;
+    #10
+    ack_mem2cc  <=      1'b1;
+    dat_mem2cc  <=      32'b11111111110000000000100000000100;
+    #10
+    ack_mem2cc  <=      1'b0;
+    #10
+    ack_mem2cc  <=      1'b1;
+    dat_mem2cc  <=      32'b11111000100101010001010100000101;
+    #10
+    ack_mem2cc  <=      1'b0;
+    #10
+    ack_mem2cc  <=      1'b1;
+    dat_mem2cc  <=      32'b11101000111110010101011111100101;
+    #10
+    ack_mem2cc  <=      1'b0;
+    #5 
     #100
     
 //    /*READ REQUEST MISS, FREE CACHE=> ASSUMING (TAG+INDEX+4bit)

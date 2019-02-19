@@ -57,9 +57,9 @@ module cache4way
     
     // MSHR
     //-------------------------//
-    output reg [WORD_WIDTH-1:0]         dat_mem2mshr,
-    output wire [WORD_OFFSET_WIDTH-1:0]  word_mem2mshr,
-    output reg [DATAMEM_WIDTH-1:0]      dat_cc2mshr
+    output reg  [WORD_WIDTH-1:0]         dat_mem2mshr,
+    output reg  [DATAMEM_WIDTH-1:0]      dat_cc2mshr,
+    output wire [WORD_OFFSET_WIDTH-1:0]  word_mem2mshr
     
 );
 
@@ -83,6 +83,7 @@ localparam TAGWAY_WIDTH = VALID_WIDTH+DIRTY_WIDTH+TAG_WIDTH;
 localparam TAGMEM_WIDTH = TAGWAY_WIDTH*WAY_NUM;
 localparam DATAMEM_WIDTH = (WORD_WIDTH*WORD_NUM);
 localparam INDEX_WAY = INDEX_WIDTH+2;
+
  /*
 * Tag memory layout
 *            +------------------------------------------------------------------------------+
@@ -145,12 +146,11 @@ reg [1:0] lru_way;
 reg [1:0] lru_value;
 
 reg fetch_line;
-reg [WORD_WIDTH-1:0] data_read;
 
 reg [TAGMEM_WIDTH-1:0]  tagMem   [CACHE_LINES-1:0];
 reg [DATAMEM_WIDTH-1:0] dataMem  [(WAY_NUM*CACHE_LINES)-1:0];
-reg [LRU_WIDTH-1:0]     lruMem   [(WAY_NUM*CACHE_LINES)-1:0];
-reg [LRU_WIDTH-1:0]     lru_next [LRU_WIDTH-1:0];
+reg [(LRU_WIDTH*WAY_NUM)-1:0]     lruMem   [CACHE_LINES-1:0];
+reg [LRU_WIDTH-1:0]     lru_next [WAY_NUM-1:0];
 
 reg [TAGMEM_WIDTH-1:0]  readTag;
 reg [TAG_WIDTH-1:0]     writeTag;
@@ -161,7 +161,7 @@ reg                     we_tag;
 reg                     we_data;
 reg                     cache_req;
 reg [1:0]               way;
-
+reg                     update_lru;
 
 assign tag          = adr_cpu2cc[ADR_TAG_END : ADR_TAG_BEGIN];
 assign index        = adr_cpu2cc[ADR_INDEX_END : ADR_INDEX_BEGIN];
@@ -173,7 +173,6 @@ assign valid_way0 = readTag[22];
 assign valid_way1 = readTag[45];
 assign valid_way2 = readTag[68];
 assign valid_way3 = readTag[91];
-assign valid      = valid_way0 & valid_way1 & valid_way2 & valid_way3;
 
 assign dirty_way0 = readTag[21];
 assign dirty_way1 = readTag[44];
@@ -208,11 +207,11 @@ lru_way=2'b00;
     for(i = 0; i <CACHE_LINES; i=i+1) 
     begin
         tagMem[i]={1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}},1'b1,1'b0,{TAG_WIDTH{1'b0}}};
+        lruMem[i]={2'b10,2'b10,2'b10,2'b10};
     end
     for(i = 0; i <CACHE_LINES*WAY_NUM; i=i+1)
     begin   
-       dataMem[i] = {DATAMEM_WIDTH{1'b0}};  
-       lruMem[i]  = 2'b11;   
+       dataMem[i] = {DATAMEM_WIDTH{1'b0}};    
     end         
 end
 
@@ -242,7 +241,7 @@ begin
         end
    
         ss          <= ss_next;
-        cnt_fetch   <= cnt_fetch_next; 
+        cnt_fetch   <= cnt_fetch_next;        
         
         for(i=0; i<WAY_NUM; i=i+1)
         begin
@@ -270,21 +269,17 @@ begin
     writeData       = {WORD_WIDTH{1'b0}};
     dat_mem2mshr    = {WORD_WIDTH{1'b0}};
     writeTag        = {TAG_WIDTH{1'b0}};
-    
+    update_lru      = 1'b0;
     
     case(ss)
     IDLE:
         begin
-        
-            //cache_req   = 1'b0;
-            //we_data     = 1'b0;
-            //we_tag      = 1'b0;
-            //ack_cc2cpu  = 1'b0;
-            //fetch_line  = 1'b0;
+            
             way         = lru_way;
         
             if(req_cpu2cc == 1'b1)
             begin
+                update_lru  = 1'b1;
                 ss_next = LOOKUP;
             end
         end
@@ -292,9 +287,9 @@ begin
         begin
             if(hit)
             begin
-            
-                way     = way_hit;
-                ss_next = HIT;
+                
+                way         = way_hit;
+                ss_next     = HIT;
                 
              end
              else // MISS REPLACE
@@ -384,12 +379,9 @@ begin
              end
         end
     endcase
-end
-
-
-always@(hit)
-begin
-    if(hit)
+    
+    //update LRU
+    if(update_lru)
     begin
         for(i=0; i<WAY_NUM; i=i+1)
         begin
@@ -411,6 +403,7 @@ begin
             end
         end
     end
+    
 end
 
 endmodule
