@@ -28,6 +28,7 @@ module cache4way
     parameter TAG_WIDTH         = 21,
     parameter BYTE_OFFSET_WIDTH = 2,
     parameter WORD_OFFSET_WIDTH = 2,
+    parameter DATAMEM_WIDTH     = 128,
     parameter VALID_WIDTH       = 1,
     parameter DIRTY_WIDTH       = 1,
     parameter WORD_NUM          = 4,
@@ -71,8 +72,7 @@ module cache4way
 localparam LRU_WIDTH             = 2;
 //localparam TAGWAY_WIDTH          = VALID_WIDTH+DIRTY_WIDTH+TAG_WIDTH;
 localparam TAGWAY_WIDTH          = VALID_WIDTH+DIRTY_WIDTH+TAG_WIDTH+LRU_WIDTH;
-localparam TAGMEM_WIDTH          = TAGWAY_WIDTH*WAY_NUM;    
-localparam DATAMEM_WIDTH         = (WORD_WIDTH*WORD_NUM);
+localparam TAGMEM_WIDTH          = TAGWAY_WIDTH*WAY_NUM;
 localparam INDEX_WAY             = INDEX_WIDTH+2;
 
 // ADR OFFSET
@@ -128,7 +128,7 @@ reg                     we_tag;
 reg                     we_data;
 reg                     cache_req;
 reg                     fetch_line;
-reg [1:0]               way;
+//reg [1:0]               way;
 
 reg [TAGMEM_WIDTH-1:0]  tagMem   [CACHE_LINES-1:0];
 reg [DATAMEM_WIDTH-1:0] dataMem  [(WAY_NUM*CACHE_LINES)-1:0];
@@ -141,7 +141,7 @@ reg [1:0]               lru_value;
 reg                     update_lru;
 reg [1:0]               write_lru;
 reg [1:0]               lru_index;
-reg [1:0]               test1;
+reg              test1;
 reg [1:0]               test2;
 
 wire [TAG_WIDTH-1:0]         tag;
@@ -156,6 +156,7 @@ wire                         hit_way0;
 wire                         hit_way1;
 wire                         hit_way2;
 wire                         hit_way3;
+wire [1:0]               way;
 
 wire                         valid_way0;
 wire                         valid_way1;
@@ -218,12 +219,13 @@ assign hit_way1      = comp_tag_way1 & valid_way1;
 assign hit_way2      = comp_tag_way2 & valid_way2;
 assign hit_way3      = comp_tag_way3 & valid_way3;
 
+assign way = (hit==1'b1) ? way_hit : lru_way;
 assign hit           = hit_way0 | hit_way1 | hit_way2 | hit_way3;
 
 assign way_hit       = (hit_way0==1'b1) ? 2'b00 
                      : (hit_way1==1'b1) ? 2'b01 
                      : (hit_way2==1'b1) ? 2'b10 
-                     : (hit_way2==1'b1) ? 2'b11 
+                     : (hit_way3==1'b1) ? 2'b11 
                      : lru_way; 
 
 assign word_mem2mshr = cnt_fetch;
@@ -321,7 +323,7 @@ begin
     write_lru       = 2'b00;
     lru_value = 2'b00;
     lru_index = 2'b00;
-    
+    test1 = 1'b0;
     
     for(i=0;i<WAY_NUM;i=i+1)
     begin
@@ -333,7 +335,7 @@ begin
     IDLE:
         begin
             
-            way = lru_way;
+            //way = lru_way;
         
             if(req_cpu2cc == 1'b1)
             begin
@@ -348,7 +350,7 @@ begin
             if(hit)
             begin
                 
-                way         = way_hit;
+                //way         = way_hit;
                 ss_next     = HIT;
                 
              end
@@ -362,13 +364,13 @@ begin
                  adr_cc2mem     = adr_cpu2cc;
                  cnt_fetch_next = word_offset; 
                  
-                 //Deload
-                 dat_cc2mshr    = readData;
+                 
              end
              
         end     
     HIT:
         begin
+            update_lru = 1'b1;
         
             if(rdwr_cpu2cc == 1'b0) 
                 dat_cc2cpu  = readData;
@@ -377,7 +379,7 @@ begin
                 we_data     = 1'b1;
                 writeData   = dat_cpu2cc;
                 we_tag      = 1'b1;
-                update_lru = 1'b1;
+                
                 writeDirty  = 1'b1;     
             end
             
@@ -387,6 +389,9 @@ begin
         end
     REFILL_BLOCKED:
         begin
+            
+            //Deload
+            dat_cc2mshr    = readData;
         
             if(ack_mem2cc == 1'b1)
             begin
@@ -453,6 +458,8 @@ begin
             else
                 if(lru_read[i]<2'b11)
                     lru_next[i] = lru_read[i] + 2'b01;
+                else
+                    lru_next[i] = lru_read[i];
             lru_index = lru_index + 2'b01;
         end
     
