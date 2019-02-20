@@ -69,8 +69,9 @@ module cache4way
 
 // WIDTH
 localparam LRU_WIDTH             = 2;
-localparam TAGWAY_WIDTH          = VALID_WIDTH+DIRTY_WIDTH+TAG_WIDTH;
-localparam TAGMEM_WIDTH          = TAGWAY_WIDTH*WAY_NUM;
+//localparam TAGWAY_WIDTH          = VALID_WIDTH+DIRTY_WIDTH+TAG_WIDTH;
+localparam TAGWAY_WIDTH          = VALID_WIDTH+DIRTY_WIDTH+TAG_WIDTH+LRU_WIDTH;
+localparam TAGMEM_WIDTH          = TAGWAY_WIDTH*WAY_NUM;    
 localparam DATAMEM_WIDTH         = (WORD_WIDTH*WORD_NUM);
 localparam INDEX_WAY             = INDEX_WIDTH+2;
 
@@ -134,16 +135,21 @@ reg [DATAMEM_WIDTH-1:0] dataMem  [(WAY_NUM*CACHE_LINES)-1:0];
 
 reg [LRU_WIDTH-1:0]     lruMem   [(WAY_NUM*CACHE_LINES)-1:0];
 reg [LRU_WIDTH-1:0]     lru_next [WAY_NUM-1:0];
-reg [1:0]               lru_way;
+reg [LRU_WIDTH-1:0]     lru_read [WAY_NUM-1:0];
+//reg [1:0]               lru_way;
 reg [1:0]               lru_value;
 reg                     update_lru;
-
+reg [1:0]               write_lru;
+reg [1:0]               lru_index;
+reg [1:0]               test1;
+reg [1:0]               test2;
 
 wire [TAG_WIDTH-1:0]         tag;
 wire [INDEX_WIDTH-1:0]       index;
 wire [WORD_OFFSET_WIDTH-1:0] word_offset;
 wire [BYTE_OFFSET_WIDTH-1:0] byte_offset;
 
+wire [1:0]                   lru_way;
 wire [1:0]                   way_hit;
 wire                         hit;
 wire                         hit_way0;
@@ -200,6 +206,8 @@ assign tag_way1      = readTag[43:23];
 assign tag_way2      = readTag[66:46];
 assign tag_way3      = readTag[89:69];
 
+assign lru_way       = readTag[93:92];
+
 assign comp_tag_way0 = (tag_way0 == tag);
 assign comp_tag_way1 = (tag_way1 == tag);
 assign comp_tag_way2 = (tag_way2 == tag);
@@ -226,7 +234,7 @@ assign word_mem2mshr = cnt_fetch;
 initial 
 begin
 
-    lru_way = 2'b00;
+    write_lru = 2'b00;
     
     for(i = 0; i <CACHE_LINES; i=i+1) 
     begin
@@ -235,11 +243,11 @@ begin
                      1'b1,1'b0,{TAG_WIDTH{1'b0}},
                      1'b1,1'b0,{TAG_WIDTH{1'b0}}
                     };
-        lruMem[i] = {2'b10,2'b10,2'b10,2'b10};
     end
     for(i = 0; i <CACHE_LINES*WAY_NUM; i=i+1)
     begin   
-       dataMem[i] = {DATAMEM_WIDTH{1'b0}};    
+       dataMem[i] = {DATAMEM_WIDTH{1'b0}};
+       lruMem[i]  = {2'b01};    
     end   
           
 end
@@ -269,15 +277,25 @@ begin
             else if(word_offset == 2'b10) dataMem[data_index][95 : 64]  <= writeData;
             else if(word_offset == 2'b11) dataMem[data_index][127 : 96] <= writeData;
         end
-   
+        
+        if(we_tag) tagMem[index][93:92] <= write_lru;
+        
+        lru_read[0] = lruMem[{index,2'b00}];
+        lru_read[1] = lruMem[{index,2'b01}];
+        lru_read[2] = lruMem[{index,2'b10}];
+        lru_read[3] = lruMem[{index,2'b11}];
+        
+           
         ss          <= ss_next;
         cnt_fetch   <= cnt_fetch_next;        
         
-        for(i=0; i<WAY_NUM; i=i+1)
+        if(update_lru)
         begin
-            lruMem[index][i] <= lru_next[i];
+            lruMem[{index,2'b00}] <= lru_next[0];
+            lruMem[{index,2'b01}] <= lru_next[1];
+            lruMem[{index,2'b10}] <= lru_next[2];
+            lruMem[{index,2'b11}] <= lru_next[3];
         end
-        
     end
 end
 
@@ -300,6 +318,16 @@ begin
     dat_mem2mshr    = {WORD_WIDTH{1'b0}};
     writeTag        = {TAG_WIDTH{1'b0}};
     update_lru      = 1'b0;
+    write_lru       = 2'b00;
+    lru_value = 2'b00;
+    lru_index = 2'b00;
+    
+    
+    for(i=0;i<WAY_NUM;i=i+1)
+    begin
+        lru_next[i] = 2'b00;
+    end
+    
     
     case(ss)
     IDLE:
@@ -309,13 +337,13 @@ begin
         
             if(req_cpu2cc == 1'b1)
             begin
-                update_lru  = 1'b1;
                 ss_next     = LOOKUP;
             end
             
         end
     LOOKUP:
         begin
+            
         
             if(hit)
             begin
@@ -349,6 +377,7 @@ begin
                 we_data     = 1'b1;
                 writeData   = dat_cpu2cc;
                 we_tag      = 1'b1;
+                update_lru = 1'b1;
                 writeDirty  = 1'b1;     
             end
             
@@ -369,6 +398,7 @@ begin
                 writeData       = dat_mem2cc;
                 we_data         = 1'b1;
                 we_tag          = 1'b1;
+                update_lru = 1'b1;
                 writeDirty      = 1'b0;
                 writeTag        = tag;
                 
@@ -396,7 +426,7 @@ begin
             begin
                 if(ack_mem2cc == 1'b1)
                 begin
-                     fetch_line     = 1'b1;
+                    fetch_line      = 1'b1;
                     dat_mem2mshr    = dat_mem2cc;
                     cnt_fetch_next  = cnt_fetch + 2'b01;
                     writeData       = dat_mem2cc;
@@ -415,23 +445,48 @@ begin
     if(update_lru)
     begin
     
+        lru_index = 2'b00;
         for(i=0; i<WAY_NUM; i=i+1)
         begin
-            if(lruMem[index][i] == lruMem[index][way_hit])
-                    lru_next[i] = 2'b00;
-                else if(lruMem[index][way_hit] < lruMem[index][i])
-                    lru_next[i] = lruMem[index][i] + 2'b01; 
+            if({index,lru_index} == {index,way_hit})
+                lru_next[i] = 2'b00;
+            else
+                if(lru_read[i]<2'b11)
+                    lru_next[i] = lru_read[i] + 2'b01;
+            lru_index = lru_index + 2'b01;
         end
+    
+        /*
+        //scrivere su write_lru e dare we_tag = 1
+        lru_index = 2'b00;
+        for(i=0; i<WAY_NUM; i=i+1)
+        begin
+        
+            if({index,lru_index} == {index,way_hit})
+                    lru_next[i] = 2'b00;
+            else if(lruMem[{index,lru_index}] >= lruMem[{index,way_hit}] && lruMem[{index,lru_index}]<2'b11)
+                    lru_next[i] = lruMem[{index,i}] + 2'b01;
+                                 
+            lru_index = lru_index + 2'b01;         
+        end
+        */
+        /*
+        if(valid_way0 == 1'b0) lru_next[0] = 2'b11;
+        if(valid_way1 == 1'b0) lru_next[1] = 2'b11;
+        if(valid_way2 == 1'b0) lru_next[2] = 2'b11;
+        if(valid_way3 == 1'b0) lru_next[3] = 2'b11;  
+        */
            
         lru_value = 2'b00;
-        lru_way   = 2'b00;
+        //lru_way   = 2'b00;
         
         for(i=0; i<WAY_NUM; i=i+1)
         begin
             if(lru_value < lru_next[i])
             begin
                 lru_value = lru_next[i];
-                lru_way   = i;
+                write_lru = i;
+                we_tag=1;
             end
         end
         
