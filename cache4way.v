@@ -238,7 +238,11 @@ begin
 
     write_lru = 2'b00;
     
-    for(i = 0; i <CACHE_LINES; i=i+1) 
+    $readmemb("C:/lru_mem.txt",lruMem);
+    $readmemb("C:/data_mem.txt",dataMem);
+    $readmemb("C:/tag_mem.txt",tagMem);
+    
+    /*for(i = 0; i <CACHE_LINES; i=i+1) 
     begin
         tagMem[i] = {1'b1,1'b0,{TAG_WIDTH{1'b0}},
                      1'b1,1'b0,{TAG_WIDTH{1'b0}},
@@ -250,7 +254,7 @@ begin
     begin   
        dataMem[i] = {DATAMEM_WIDTH{1'b0}};
        lruMem[i]  = {2'b01};    
-    end   
+    end  */ 
           
 end
 
