@@ -158,7 +158,7 @@ begin
     $finish;
 end
 
- cache4way cache_4way0(
+ cacheController cacheController0(
                         .clk(clk), 
                         .rst(rst), 
                         .req_cpu2cc(req_cpu2cc), 
