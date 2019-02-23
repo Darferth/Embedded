@@ -61,7 +61,7 @@ begin
     @(posedge clk);
     rst         <= 1'b0;
     
-    //first req
+    //first req: read miss w.o. 2
     @(posedge clk);
     adr_cpu2cc  <= 32'b11111111000001111011110100001000;
     rdwr_cpu2cc <= 1'b0;
@@ -80,9 +80,9 @@ begin
     repeat(2)@(posedge clk);
     
     
-    //first req
+    //second req: read miss w.o. 3
     @(posedge clk);
-    adr_cpu2cc  <= 32'b10100101010101010010110100001000;
+    adr_cpu2cc  <= 32'b10100101010101010010110100001100;
     rdwr_cpu2cc <= 1'b0;
     req_cpu2cc  <= 1'b1;
     repeat(3) @(posedge clk);
@@ -98,9 +98,9 @@ begin
     
     repeat(2)@(posedge clk);
         
-    //first req
+    //third req: read miss w.o. 0
     @(posedge clk);
-    adr_cpu2cc  <= 32'b11010101000000001010110100001000;
+    adr_cpu2cc  <= 32'b11010101000000001010110100000000;
     rdwr_cpu2cc <= 1'b0;
     req_cpu2cc  <= 1'b1;
     repeat(3) @(posedge clk);
@@ -116,7 +116,7 @@ begin
     
     repeat(2)@(posedge clk);
         
-    //first req
+    //fourth req: read miss w.o 2
     @(posedge clk);
     adr_cpu2cc  <= 32'b11111111111111111111110100001000;
     rdwr_cpu2cc <= 1'b0;
@@ -136,7 +136,7 @@ begin
         
     //five: read hit 0way
     @(posedge clk);
-    adr_cpu2cc  <= 32'b11111111000001111011110100001000;
+    adr_cpu2cc  <= 32'b11111111000001111011110100000000;
     rdwr_cpu2cc <= 1'b0;
     req_cpu2cc  <= 1'b1;
     repeat(3) @(posedge clk);
@@ -155,7 +155,7 @@ begin
     
     
     repeat(2)@(posedge clk);
-    //seven: write hit 1way
+    //seven: write hit way
     @(posedge clk);
     adr_cpu2cc  <= 32'b10100101010101010010110100001000;
     rdwr_cpu2cc <= 1'b1;
@@ -167,10 +167,11 @@ begin
     repeat(2)@(posedge clk);
     //eight: read miss 2way
     @(posedge clk);
-    adr_cpu2cc  <= 32'b10100101010101010010110100001000;
+    adr_cpu2cc  <= 32'b10101111110101010010110100001000;
     rdwr_cpu2cc <= 1'b0;
     req_cpu2cc  <= 1'b1;
-    repeat(4)
+    repeat(3) @(posedge clk);
+        repeat(4)
         begin
             ack_mem2cc  <= 1'b1;
             dat_mem2cc  <= {32{1'b1}};
@@ -178,8 +179,16 @@ begin
             ack_mem2cc <= 1'b0;
             @(posedge clk); 
         end
-    req_cpu2cc <= 1'b0;
+        req_cpu2cc <= 1'b0;
     
+    repeat(2)@(posedge clk);
+    //nine: read hit, reads the value written in test 7
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b10100101010101010010110100001000;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
     
     #50
     

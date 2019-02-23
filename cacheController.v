@@ -384,7 +384,14 @@ begin
             update_lru = 1'b1;
         
             if(rdwr_cpu2cc == 1'b0) 
-                dat_cc2cpu  = readData;
+            begin
+            case(word_offset)
+                2'b00: dat_cc2cpu  = readData[31:0];
+                2'b01: dat_cc2cpu  = readData[63:32];
+                2'b10: dat_cc2cpu  = readData[95:64];
+                2'b11: dat_cc2cpu  = readData[127:96];
+                endcase
+            end
             else 
             begin
                 we_data     = 1'b1;
