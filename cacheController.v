@@ -21,7 +21,6 @@
 
 module cacheController
 #(
-
     parameter WORD_WIDTH        = 32,
     parameter ADR_WIDTH         = 32,
     parameter INDEX_WIDTH       = 7,
@@ -391,7 +390,7 @@ begin
                 we_data     = 1'b1;
                 writeData   = dat_cpu2cc;
                 we_tag      = 1'b1;
-                
+                writeTag    = tag;
                 writeDirty  = 1'b1;     
             end
             
@@ -478,6 +477,7 @@ begin
                 lru_value = lru_next[i];
                 write_lru = i;
                 we_tag    = 1'b1;
+                writeTag = tag;
             end
         end
         
@@ -486,4 +486,3 @@ begin
 end
 
 endmodule
-
