@@ -117,7 +117,7 @@ begin
     
     repeat(2)@(posedge clk);
         
-    //four: read miss 4way
+    //four: read miss 3way
     @(posedge clk);
     adr_cpu2cc  <= 32'b11111111111111111111110100001000;
     rdwr_cpu2cc <= 1'b0;
@@ -166,11 +166,40 @@ begin
     
     repeat(2)@(posedge clk);
     
-    //eight: write miss
+    //eight: write miss 1way deload
     adr_cpu2cc  <= 32'b01011111010101111110110100001000;
     rdwr_cpu2cc <= 1'b1;
     req_cpu2cc  <= 1'b1;
     dat_cpu2cc  <= 32'b10101010101010101010101010101010;
+    repeat(3) @(posedge clk);
+    repeat(4)
+    begin
+        ack_mem2cc  <= 1'b1;
+        dat_mem2cc  <= {32{1'b1}};
+        @(posedge clk);     
+        ack_mem2cc <= 1'b0;
+        @(posedge clk); 
+    end
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+        
+    //nine: write hit 0way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b11111111000001111011110100001000;
+    rdwr_cpu2cc <= 1'b1;
+    dat_cpu2cc  <= 32'b11011101110111011101110111011101;
+    req_cpu2cc  <= 1'b1;
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+          
+    //ten: read miss deload 3way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b0111010100000101010110100001000;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
     repeat(3) @(posedge clk);
     repeat(4)
     begin
