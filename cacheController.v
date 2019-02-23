@@ -21,7 +21,6 @@
 
 module cacheController
 #(
-
     parameter WORD_WIDTH        = 32,
     parameter ADR_WIDTH         = 32,
     parameter INDEX_WIDTH       = 7,
@@ -251,6 +250,11 @@ begin
 
     write_lru = 2'b00;
     
+    $readmemb("C:/lru_mem.txt",lruMem);
+    $readmemb("C:/data_mem.txt",dataMem);
+    $readmemb("C:/tag_mem.txt",tagMem);
+          
+    /*
     for(i = 0; i <CACHE_LINES; i=i+1) 
     begin
         tagMem[i] = {1'b1,1'b0,{TAG_WIDTH{1'b0}},
@@ -258,13 +262,13 @@ begin
                      1'b1,1'b0,{TAG_WIDTH{1'b0}},
                      1'b1,1'b0,{TAG_WIDTH{1'b0}}
                     };
-        lruMem[i] = {2'b01,2'b01,2'b01,2'b01};
     end
-    
     for(i = 0; i <CACHE_LINES*WAY_NUM; i=i+1)
     begin   
        dataMem[i] = {DATAMEM_WIDTH{1'b0}};
-    end 
+       lruMem[i]  = {2'b01};    
+    end       
+    */ 
           
 end
 
@@ -386,7 +390,7 @@ begin
                 we_data     = 1'b1;
                 writeData   = dat_cpu2cc;
                 we_tag      = 1'b1;
-                
+                writeTag    = tag;
                 writeDirty  = 1'b1;     
             end
             
@@ -473,6 +477,7 @@ begin
                 lru_value = lru_next[i];
                 write_lru = i;
                 we_tag    = 1'b1;
+                writeTag = tag;
             end
         end
         
@@ -481,4 +486,3 @@ begin
 end
 
 endmodule
-
