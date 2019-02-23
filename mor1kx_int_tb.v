@@ -153,6 +153,34 @@ begin
     repeat(3) @(posedge clk);
     req_cpu2cc <= 1'b0;
     
+    
+    repeat(2)@(posedge clk);
+    //seven: write hit 1way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b10100101010101010010110100001000;
+    rdwr_cpu2cc <= 1'b1;
+    req_cpu2cc  <= 1'b1;
+    dat_cpu2cc  <= 32'b10101010100010101010101010100100; 
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+    //eight: read miss 2way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b10100101010101010010110100001000;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    repeat(4)
+        begin
+            ack_mem2cc  <= 1'b1;
+            dat_mem2cc  <= {32{1'b1}};
+            @(posedge clk);     
+            ack_mem2cc <= 1'b0;
+            @(posedge clk); 
+        end
+    req_cpu2cc <= 1'b0;
+    
+    
     #50
     
     $finish;
