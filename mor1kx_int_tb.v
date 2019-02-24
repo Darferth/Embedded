@@ -190,6 +190,35 @@ begin
     repeat(3) @(posedge clk);
     req_cpu2cc <= 1'b0;
     
+    repeat(2)@(posedge clk);
+    //ten: write hit w.o. 0
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b10100101010101010010110100000000;
+    rdwr_cpu2cc <= 1'b1;
+    req_cpu2cc  <= 1'b1;
+    dat_cpu2cc  <= 32'b10101010100010101010101010100100; 
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+    //eleven: write hit w.o. 1
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b10100101010101010010110100000100;
+    rdwr_cpu2cc <= 1'b1;
+    req_cpu2cc  <= 1'b1;
+    dat_cpu2cc  <= 32'b10101010100010101010101010100100; 
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+    //seven: write hit w.o. 3
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b10100101010101010010110100001100;
+    rdwr_cpu2cc <= 1'b1;
+    req_cpu2cc  <= 1'b1;
+    dat_cpu2cc  <= 32'b10101010100010101010101010100100; 
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
     #50
     
     $finish;
