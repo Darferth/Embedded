@@ -254,22 +254,6 @@ begin
     $readmemb("C:/data_mem.txt",dataMem);
     $readmemb("C:/tag_mem.txt",tagMem);
           
-    /*
-    for(i = 0; i <CACHE_LINES; i=i+1) 
-    begin
-        tagMem[i] = {1'b1,1'b0,{TAG_WIDTH{1'b0}},
-                     1'b1,1'b0,{TAG_WIDTH{1'b0}},
-                     1'b1,1'b0,{TAG_WIDTH{1'b0}},
-                     1'b1,1'b0,{TAG_WIDTH{1'b0}}
-                    };
-    end
-    for(i = 0; i <CACHE_LINES*WAY_NUM; i=i+1)
-    begin   
-       dataMem[i] = {DATAMEM_WIDTH{1'b0}};
-       lruMem[i]  = {2'b01};    
-    end       
-    */ 
-          
 end
 
 always@(posedge clk)
@@ -279,6 +263,8 @@ begin
     begin
         ss          <= IDLE;
         cnt_fetch   <= 2'b00;
+        
+        
     end
     else
     begin
@@ -310,7 +296,7 @@ begin
         
         lru_read    <= lruMem[index];
         
-        if(update_lru)
+        if(we_tag)
         begin
             lruMem[index] <= {lru_next[3],lru_next[2],lru_next[1],lru_next[0]};
         end
@@ -335,7 +321,7 @@ begin
     writeData       = {WORD_WIDTH{1'b0}};
     dat_mem2mshr    = {WORD_WIDTH{1'b0}};
     writeTag        = {TAG_WIDTH{1'b0}};
-    update_lru      = 1'b0;
+    //update_lru      = 1'b0;
     write_lru       = 2'b00;
     lru_value       = 2'b00;
     lru_index       = 2'b00;
@@ -381,8 +367,9 @@ begin
         end     
     HIT:
         begin
-            update_lru = 1'b1;
-        
+            //update_lru = 1'b1;
+            we_tag      = 1'b1;
+            writeTag    = tag;
             if(rdwr_cpu2cc == 1'b0) 
             begin
             case(word_offset)
@@ -396,8 +383,8 @@ begin
             begin
                 we_data     = 1'b1;
                 writeData   = dat_cpu2cc;
-                we_tag      = 1'b1;
-                writeTag    = tag;
+                //we_tag      = 1'b1;
+                //writeTag    = tag;
                 writeDirty  = 1'b1;     
             end
             
@@ -421,7 +408,7 @@ begin
                 writeData       = dat_mem2cc;
                 we_data         = 1'b1;
                 we_tag          = 1'b1;
-                update_lru = 1'b1;
+                //update_lru = 1'b1;
                 writeDirty      = 1'b0;
                 writeTag        = tag;
                 
@@ -467,7 +454,7 @@ begin
         end
     endcase
     
-    if(update_lru)
+    if(we_tag)
     begin
     
         lru_next[0] = (way_hit==2'b00) ? 2'b00 : (lru_way0 < 2'b11) ? lru_way0+2'b01 : lru_way0; 
@@ -483,7 +470,7 @@ begin
             begin
                 lru_value = lru_next[i];
                 write_lru = i;
-                we_tag    = 1'b1;
+                //we_tag    = 1'b1;
                 writeTag = tag;
             end
         end
