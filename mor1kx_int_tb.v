@@ -90,7 +90,7 @@ endtask
             
 initial
 begin
-    
+    #150
     clk         <= 0;
     rst          = 1'b1;
     @(posedge clk);
@@ -255,7 +255,7 @@ begin
     req_cpu2cc <= 1'b0;
     
     repeat(2)@(posedge clk);
-    //seven: write hit w.o. 3
+    //twelve: write hit w.o. 3
     @(posedge clk);
     write_request(32'b10100101010101010010110100001100,
                   32'b10101010111010111010101010110100,
