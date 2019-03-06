@@ -140,7 +140,6 @@ reg [(LRU_WIDTH*WAY_NUM)-1:0]   lruMem          [CACHE_LINES-1:0];
 reg [LRU_WIDTH-1:0]             lru_next        [WAY_NUM-1:0];
 reg [(LRU_WIDTH*WAY_NUM)-1:0]   lru_read;
 reg [1:0]                       lru_value;
-reg                             update_lru;
 reg [1:0]                       write_lru;
 reg [1:0]                       lru_index;
 
@@ -321,7 +320,6 @@ begin
     writeData       = {WORD_WIDTH{1'b0}};
     dat_mem2mshr    = {WORD_WIDTH{1'b0}};
     writeTag        = {TAG_WIDTH{1'b0}};
-    //update_lru      = 1'b0;
     write_lru       = 2'b00;
     lru_value       = 2'b00;
     lru_index       = 2'b00;
@@ -335,7 +333,6 @@ begin
     case(ss)
     IDLE:
         begin
-        
             if(req_cpu2cc == 1'b1)
             begin
                 ss_next     = LOOKUP;
@@ -344,7 +341,6 @@ begin
         end
     LOOKUP:
         begin
-           
             if(hit)
             begin
             
@@ -367,7 +363,6 @@ begin
         end     
     HIT:
         begin
-            //update_lru = 1'b1;
             we_tag      = 1'b1;
             writeTag    = tag;
             if(rdwr_cpu2cc == 1'b0) 
@@ -383,8 +378,6 @@ begin
             begin
                 we_data     = 1'b1;
                 writeData   = dat_cpu2cc;
-                //we_tag      = 1'b1;
-                //writeTag    = tag;
                 writeDirty  = 1'b1;     
             end
             
@@ -408,7 +401,6 @@ begin
                 writeData       = dat_mem2cc;
                 we_data         = 1'b1;
                 we_tag          = 1'b1;
-                //update_lru = 1'b1;
                 writeDirty      = 1'b0;
                 writeTag        = tag;
                 
@@ -431,7 +423,6 @@ begin
         end
     REFILL:
         begin
-        
             if(cnt_fetch != adr_cpu2cc[ADR_WORD_OFFSET_END : ADR_WORD_OFFSET_BEGIN])
             begin
                 if(ack_mem2cc == 1'b1)
@@ -470,7 +461,6 @@ begin
             begin
                 lru_value = lru_next[i];
                 write_lru = i;
-                //we_tag    = 1'b1;
                 writeTag = tag;
             end
         end

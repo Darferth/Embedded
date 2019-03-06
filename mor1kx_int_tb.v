@@ -59,8 +59,6 @@ task refill;
         @(posedge clk);
         ack_mem2cc  <= ack;
         dat_mem2cc  <= dat;
-        @(posedge clk);     
-        ack_mem2cc <= 1'b0;
     end
 endtask 
 task read_request;
@@ -90,11 +88,19 @@ endtask
             
 initial
 begin
-    #150
+    #100
     clk         <= 0;
     rst          = 1'b1;
-    @(posedge clk);
+    
+    repeat(2)@(negedge clk);
+    
     rst         <= 1'b0;
+    req_cpu2cc <= 1'b0;
+    ack_mem2cc <= 1'b0;
+    rdwr_cpu2cc<= 1'b0;
+    dat_cpu2cc <= {32{1'b0}};
+    adr_cpu2cc <= {32{1'b0}};
+    dat_mem2cc <= {32{1'b0}};
     
     //first req: read miss w.o. 2
     @(posedge clk);
@@ -105,15 +111,9 @@ begin
     repeat(4)
     begin
         refill(1'b1, {32{1'b1}});
-//        refill(ack_mem2cc, dat_mem2cc);
-//        refill(ack_mem2cc, dat_mem2cc);
-//        refill(ack_mem2cc, dat_mem2cc);
-//        ack_mem2cc  <= 1'b1;
-//        dat_mem2cc  <= {32{1'b1}};
-//        @(posedge clk);     
-//        ack_mem2cc <= 1'b0;
-//        @(posedge clk); 
     end
+    @(posedge clk);
+    ack_mem2cc  <= 1'b0;
     req_cpu2cc <= 1'b0;
     
     repeat(2)@(posedge clk);
@@ -128,12 +128,9 @@ begin
     repeat(4)
     begin
     refill(1'b1, {32{1'b1}});
-//        ack_mem2cc  <= 1'b1;
-//        dat_mem2cc  <= {32{1'b1}};
-//        @(posedge clk);     
-//        ack_mem2cc <= 1'b0;
-//        @(posedge clk); 
     end
+    @(posedge clk);
+    ack_mem2cc  <= 1'b0;
     req_cpu2cc <= 1'b0;
     
     repeat(2)@(posedge clk);
@@ -147,12 +144,10 @@ begin
     repeat(4)
     begin
     refill(1'b1, {32{1'b1}});
-//        ack_mem2cc  <= 1'b1;
-//        dat_mem2cc  <= {32{1'b1}};
-//        @(posedge clk);     
-//        ack_mem2cc <= 1'b0;
-//        @(posedge clk); 
     end
+    @(posedge clk);
+    ack_mem2cc  <= 1'b0;
+
     req_cpu2cc <= 1'b0;
     
     repeat(2)@(posedge clk);
@@ -166,12 +161,10 @@ begin
     repeat(4)
     begin
     refill(1'b1, {32{1'b1}});
-//        ack_mem2cc  <= 1'b1;
-//        dat_mem2cc  <= {32{1'b1}};
-//        @(posedge clk);     
-//        ack_mem2cc <= 1'b0;
-//        @(posedge clk); 
     end
+    @(posedge clk);
+    ack_mem2cc  <= 1'b0;
+
     req_cpu2cc <= 1'b0;
     
     repeat(2)@(posedge clk);
@@ -216,12 +209,9 @@ begin
         repeat(4)
         begin
         refill(1'b1, {32{1'b1}});
-//            ack_mem2cc  <= 1'b1;
-//            dat_mem2cc  <= {32{1'b1}};
-//            @(posedge clk);     
-//            ack_mem2cc <= 1'b0;
-//            @(posedge clk); 
         end
+        @(posedge clk);
+        ack_mem2cc  <= 1'b0;
         req_cpu2cc <= 1'b0;
     
     repeat(2)@(posedge clk);
