@@ -91,23 +91,24 @@ begin
     #100
     clk         <= 0;
     rst          = 1'b1;
-    
-    repeat(2)@(negedge clk);
-    
-    rst         <= 1'b0;
     req_cpu2cc <= 1'b0;
     ack_mem2cc <= 1'b0;
     rdwr_cpu2cc<= 1'b0;
     dat_cpu2cc <= {32{1'b0}};
     adr_cpu2cc <= {32{1'b0}};
     dat_mem2cc <= {32{1'b0}};
+    repeat(42)@(negedge clk);
+    
+    rst         <= 1'b0;
+    repeat(512)@(negedge clk);
+    
     
     //first req: read miss w.o. 2
     @(posedge clk);
     read_request(32'b11111111000001111011110100001000,
                  1'b0,
                  1'b1);
-    repeat(3) @(posedge clk);
+    @(posedge clk);
     repeat(4)
     begin
         refill(1'b1, {32{1'b1}});

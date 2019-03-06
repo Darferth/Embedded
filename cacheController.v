@@ -89,6 +89,7 @@ localparam WORD_END              = 1;
 
 // FSM STATES
 localparam  IDLE=3'b000, 
+            RESET=3'b110,
             LOOKUP=3'b001, 
             HIT=3'b010, 
             REFILL_BLOCKED=3'b011, 
@@ -130,6 +131,7 @@ reg [WORD_WIDTH-1:0]            writeData;
 reg                             writeDirty;
 reg                             we_tag;
 reg                             we_data;
+reg                             we_init;
 reg                             cache_req;
 reg                             fetch_line;
 
@@ -248,58 +250,54 @@ initial
 begin
 
     write_lru = 2'b00;
-    
-    $readmemb("C:/lru_mem.txt",lruMem);
-    $readmemb("C:/data_mem.txt",dataMem);
-    $readmemb("C:/tag_mem.txt",tagMem);
+//    $readmemb("C:/lru_mem.txt",lruMem);
+//    $readmemb("C:/data_mem.txt",dataMem);
+//    $readmemb("C:/tag_mem.txt",tagMem);
           
 end
 
 always@(posedge clk)
 begin
-
     if(rst)
     begin
-        ss          <= IDLE;
-        cnt_fetch   <= 2'b00;
-        
-        
+        ss          <=  RESET;
+        j           <=  0;
+        cnt_fetch   <=  2'b00;    
     end
     else
-    begin
-    
-        begin
-                 
-            if(we_tag == 1'b0)              readTag                       <= tagMem[index];
+    begin   
+           if(we_init == 1'b1)
+            begin
+                if (j<CACHE_LINES)
+                begin
+                    tagMem[j]       <= {4{1'b1,1'b0,writeTag}};
+                    lruMem[j]       <= {4{2'b01}};
+                end
+            end   
+            else if(we_tag == 1'b0)              readTag                       <= tagMem[index];
             else 
             begin
                 if(way_hit == 2'b00)        tagMem[index][22:0]           <= {1'b1,writeDirty,writeTag};
                 else if(way_hit == 2'b01)   tagMem[index][45:23]          <= {1'b1,writeDirty,writeTag};
                 else if(way_hit == 2'b10)   tagMem[index][68:46]          <= {1'b1,writeDirty,writeTag};
                 else if(way_hit == 2'b11)   tagMem[index][91:69]          <= {1'b1,writeDirty,writeTag};
-                
                 tagMem[index][93:92] <= write_lru;
+                lruMem[index] <= {lru_next[3],lru_next[2],lru_next[1],lru_next[0]};
             
             end
-                
-            if(we_data == 1'b0)           readData                      <= dataMem[data_index];
+            if(we_init == 1'b1)     dataMem[j]      <= {4{writeData}};    
+            else if(we_data == 1'b0)           readData                      <= dataMem[data_index];
             else if(word_offset == 2'b00) dataMem[data_index][31 : 0]   <= writeData;
             else if(word_offset == 2'b01) dataMem[data_index][63 : 32]  <= writeData;
             else if(word_offset == 2'b10) dataMem[data_index][95 : 64]  <= writeData;
             else if(word_offset == 2'b11) dataMem[data_index][127 : 96] <= writeData;
+            
+            ss          <= ss_next;
+            cnt_fetch   <= cnt_fetch_next;      
+            lru_read    <= lruMem[index];  
+            j<=j+1;
+     end     
         
-        end
-        
-        ss          <= ss_next;
-        cnt_fetch   <= cnt_fetch_next;      
-        
-        lru_read    <= lruMem[index];
-        
-        if(we_tag)
-        begin
-            lruMem[index] <= {lru_next[3],lru_next[2],lru_next[1],lru_next[0]};
-        end
-    end
 end
 
 always@(*)
@@ -323,6 +321,7 @@ begin
     write_lru       = 2'b00;
     lru_value       = 2'b00;
     lru_index       = 2'b00;
+    we_init         = 1'b0;
     
     for(i=0;i<WAY_NUM;i=i+1)
     begin
@@ -331,6 +330,18 @@ begin
     
     
     case(ss)
+    RESET:
+        begin
+        if(j<WAY_NUM*CACHE_LINES)
+        begin
+            we_init         =1'b1;
+            writeData       ={32{1'b0}};
+            writeTag        ={20{1'b0}};
+        end
+        else
+            ss_next=IDLE;  
+        end
+        
     IDLE:
         begin
             if(req_cpu2cc == 1'b1)
@@ -444,6 +455,7 @@ begin
         begin
         end
     endcase
+    
     
     if(we_tag)
     begin
