@@ -45,6 +45,8 @@ module cacheController
     input      [ADR_WIDTH-1:0]  adr_cpu2cc,
     input      [WORD_WIDTH-1:0] dat_cpu2cc,
     input                       rdwr_cpu2cc,
+    input                       lb_cpu2cc,
+    input                       lbu_cpu2cc,
     output reg                  ack_cc2cpu,
     output reg [WORD_WIDTH-1:0] dat_cc2cpu,
 
@@ -71,6 +73,7 @@ module cacheController
 localparam LRU_WIDTH             = 2;
 localparam TAGWAY_WIDTH          = VALID_WIDTH+DIRTY_WIDTH+TAG_WIDTH;
 localparam TAGMEM_WIDTH          = TAGWAY_WIDTH*WAY_NUM+LRU_WIDTH;
+localparam BYTE_WIDTH            = 8;
 localparam INDEX_WAY             = INDEX_WIDTH+2;
 
 // ADR OFFSET
@@ -131,7 +134,7 @@ reg [WORD_WIDTH-1:0]            writeData;
 reg                             writeDirty;
 reg                             we_tag;
 reg                             we_data;
-reg                             we_init;
+reg                             init_stage;
 reg                             cache_req;
 reg                             fetch_line;
 
@@ -185,6 +188,17 @@ wire [TAG_WIDTH-1:0]            tag_way2;
 wire [TAG_WIDTH-1:0]            tag_way3;
 
 wire [INDEX_WAY-1:0]            data_index;
+
+wire [BYTE_WIDTH-1:0]           byte_read;
+wire [WORD_WIDTH-1:0]           word0_read;
+wire [WORD_WIDTH-1:0]           word1_read;
+wire [WORD_WIDTH-1:0]           word2_read;
+wire [WORD_WIDTH-1:0]           word3_read;
+
+wire [BYTE_WIDTH-1:0]           byte0_read;
+wire [BYTE_WIDTH-1:0]           byte1_read;
+wire [BYTE_WIDTH-1:0]           byte2_read;
+wire [BYTE_WIDTH-1:0]           byte3_read;
 
 integer i, j;
 
@@ -243,6 +257,35 @@ assign way_hit       = (hit_way0==1'b1) ? 2'b00
 
 assign word_mem2mshr = cnt_fetch;
 
+assign word0_read    = readData[31:0];
+assign word1_read    = readData[63:32];
+assign word2_read    = readData[95:64];
+assign word3_read    = readData[127:96];
+
+assign byte0_read    = (word_offset==2'b00) ? word0_read[7:0]
+                     : (word_offset==2'b01) ? word1_read[7:0]
+                     : (word_offset==2'b10) ? word2_read[7:0]
+                     : (word_offset==2'b11) ? word3_read[7:0]
+                     : {WORD_WIDTH{1'b0}};
+                    
+assign byte1_read    = (word_offset==2'b00) ? word0_read[15:8]
+                     : (word_offset==2'b01) ? word1_read[15:8]
+                     : (word_offset==2'b10) ? word2_read[15:8]
+                     : (word_offset==2'b11) ? word3_read[15:8]
+                     : {WORD_WIDTH{1'b0}};
+                     
+assign byte2_read    = (word_offset==2'b00) ? word0_read[23:16]
+                     : (word_offset==2'b01) ? word1_read[23:16]
+                     : (word_offset==2'b10) ? word2_read[23:16]
+                     : (word_offset==2'b11) ? word3_read[23:16]
+                     : {WORD_WIDTH{1'b0}};
+                                          
+assign byte3_read    = (word_offset==2'b00) ? word0_read[31:24]
+                     : (word_offset==2'b01) ? word1_read[31:24]
+                     : (word_offset==2'b10) ? word2_read[31:24]
+                     : (word_offset==2'b11) ? word3_read[31:24]
+                     : {WORD_WIDTH{1'b0}};
+                     
 //---------------------------------------------------------//
 // INITIAL BLOCK
 //---------------------------------------------------------// 
@@ -265,44 +308,53 @@ begin
         cnt_fetch   <=  2'b00;    
     end
     else
-    begin   
-           if(we_init == 1'b1)
+    begin
+    
+        if(init_stage == 1'b1)
+        begin
+            if (j<CACHE_LINES)
             begin
-                if (j<CACHE_LINES)
-                begin
-                    tagMem[j]       <= {4{1'b1,1'b0,writeTag}};
-                    lruMem[j]       <= {4{2'b01}};
-                end
-            end   
-            else if(we_tag == 1'b0)              readTag                       <= tagMem[index];
+                tagMem[j]       <= {4{1'b1,1'b0,{20{1'b0}}}};
+                lruMem[j]       <= {4{2'b00}};
+            end
+            dataMem[j]      <= {4{{32{1'b0}}}};
+            j               <= j+1;
+        end
+        else
+        begin
+            if(we_tag == 1'b0)              readTag                      <= tagMem[index];
             else 
             begin
-                if(way_hit == 2'b00)        tagMem[index][22:0]           <= {1'b1,writeDirty,writeTag};
-                else if(way_hit == 2'b01)   tagMem[index][45:23]          <= {1'b1,writeDirty,writeTag};
-                else if(way_hit == 2'b10)   tagMem[index][68:46]          <= {1'b1,writeDirty,writeTag};
-                else if(way_hit == 2'b11)   tagMem[index][91:69]          <= {1'b1,writeDirty,writeTag};
+                if(way_hit == 2'b00)        tagMem[index][22:0]          <= {1'b1,writeDirty,writeTag};
+                else if(way_hit == 2'b01)   tagMem[index][45:23]         <= {1'b1,writeDirty,writeTag};
+                else if(way_hit == 2'b10)   tagMem[index][68:46]         <= {1'b1,writeDirty,writeTag};
+                else if(way_hit == 2'b11)   tagMem[index][91:69]         <= {1'b1,writeDirty,writeTag};
+                
                 tagMem[index][93:92] <= write_lru;
-                lruMem[index] <= {lru_next[3],lru_next[2],lru_next[1],lru_next[0]};
-            
             end
-            if(we_init == 1'b1)     dataMem[j]      <= {4{writeData}};    
-            else if(we_data == 1'b0)           readData                      <= dataMem[data_index];
+                
+            if(we_data == 1'b0)           readData                      <= dataMem[data_index];
             else if(word_offset == 2'b00) dataMem[data_index][31 : 0]   <= writeData;
             else if(word_offset == 2'b01) dataMem[data_index][63 : 32]  <= writeData;
             else if(word_offset == 2'b10) dataMem[data_index][95 : 64]  <= writeData;
             else if(word_offset == 2'b11) dataMem[data_index][127 : 96] <= writeData;
-            
+        
             ss          <= ss_next;
             cnt_fetch   <= cnt_fetch_next;      
-            lru_read    <= lruMem[index];  
-            j<=j+1;
-     end     
-        
+            lru_read    <= lruMem[index];
+            
+            if(we_tag)
+            begin
+                lruMem[index] <= {lru_next[3],lru_next[2],lru_next[1],lru_next[0]};
+            end
+        end
+    end        
 end
 
 always@(*)
 begin
 
+    dat_cc2cpu      = {WORD_WIDTH{1'b0}};
     ss_next         = ss;
     cnt_fetch_next  = cnt_fetch;
     writeDirty      = 1'b0;
@@ -314,34 +366,27 @@ begin
     req_cc2mem      = 1'b0;
     adr_cc2mem      = {ADR_WIDTH{1'b0}};
     dat_cc2mshr     = {DATAMEM_WIDTH{1'b0}};
-    dat_cc2cpu      = {WORD_WIDTH{1'b0}};
     writeData       = {WORD_WIDTH{1'b0}};
     dat_mem2mshr    = {WORD_WIDTH{1'b0}};
     writeTag        = {TAG_WIDTH{1'b0}};
     write_lru       = 2'b00;
     lru_value       = 2'b00;
     lru_index       = 2'b00;
-    we_init         = 1'b0;
+    init_stage      = 1'b0;
     
-    for(i=0;i<WAY_NUM;i=i+1)
-    begin
-        lru_next[i] = 2'b00;
-    end
-    
+    lru_next[0]     = 2'b00;
+    lru_next[1]     = 2'b00;
+    lru_next[2]     = 2'b00;
+    lru_next[3]     = 2'b00;
     
     case(ss)
     RESET:
         begin
         if(j<WAY_NUM*CACHE_LINES)
-        begin
-            we_init         =1'b1;
-            writeData       ={32{1'b0}};
-            writeTag        ={20{1'b0}};
-        end
+            init_stage  = 1'b1;
         else
-            ss_next=IDLE;  
+            ss_next     = IDLE;  
         end
-        
     IDLE:
         begin
             if(req_cpu2cc == 1'b1)
@@ -378,12 +423,27 @@ begin
             writeTag    = tag;
             if(rdwr_cpu2cc == 1'b0) 
             begin
-            case(word_offset)
-                2'b00: dat_cc2cpu  = readData[31:0];
-                2'b01: dat_cc2cpu  = readData[63:32];
-                2'b10: dat_cc2cpu  = readData[95:64];
-                2'b11: dat_cc2cpu  = readData[127:96];
-                endcase
+                if(lb_cpu2cc == 1'b0 && lbu_cpu2cc == 1'b0 && req_cpu2cc == 1'b1)
+                    case(word_offset)
+                    2'b00: dat_cc2cpu  = word0_read;
+                    2'b01: dat_cc2cpu  = word1_read;
+                    2'b10: dat_cc2cpu  = word2_read;
+                    2'b11: dat_cc2cpu  = word3_read;
+                    endcase
+               else if(lbu_cpu2cc == 1'b1)
+                    case(byte_offset)
+                    2'b00: dat_cc2cpu  = {{24{1'b0}},byte0_read};
+                    2'b01: dat_cc2cpu  = {{24{1'b0}},byte1_read};
+                    2'b10: dat_cc2cpu  = {{24{1'b0}},byte2_read};
+                    2'b11: dat_cc2cpu  = {{24{1'b0}},byte3_read};
+                    endcase
+                else if(lb_cpu2cc == 1'b1)
+                    case(byte_offset)
+                    2'b00: dat_cc2cpu = (byte0_read[7]==1'b0) ? {{24{1'b0}},byte0_read} : {{24{1'b1}},byte0_read};
+                    2'b01: dat_cc2cpu = (byte1_read[7]==1'b0) ? {{24{1'b0}},byte1_read} : {{24{1'b1}},byte1_read};
+                    2'b10: dat_cc2cpu = (byte2_read[7]==1'b0) ? {{24{1'b0}},byte2_read} : {{24{1'b1}},byte2_read};
+                    2'b11: dat_cc2cpu = (byte3_read[7]==1'b0) ? {{24{1'b0}},byte3_read} : {{24{1'b1}},byte3_read};
+                    endcase
             end
             else 
             begin
@@ -417,7 +477,22 @@ begin
                 
                 // WRITE/HIT MISS HANDLE
                 if(rdwr_cpu2cc == 1'b0)
-                    dat_cc2cpu  = dat_mem2cc;
+                    if(lb_cpu2cc == 1'b0 && lbu_cpu2cc == 1'b0)
+                        dat_cc2cpu = dat_mem2cc;
+                    else if(lb_cpu2cc == 1'b1)
+                        case(byte_offset)
+                        2'b00: dat_cc2cpu  = {{24{1'b0}},dat_mem2cc[7:0]};
+                        2'b01: dat_cc2cpu  = {{24{1'b0}},dat_mem2cc[15:8]};
+                        2'b10: dat_cc2cpu  = {{24{1'b0}},dat_mem2cc[23:16]};
+                        2'b11: dat_cc2cpu  = {{24{1'b0}},dat_mem2cc[31:24]};
+                        endcase
+                    else if(lbu_cpu2cc == 1'b1)
+                        case(byte_offset)
+                        2'b00: dat_cc2cpu = (dat_mem2cc[7]==1'b0) ? {{24{1'b0}},dat_mem2cc[7:0]}    : {{24{1'b1}},dat_mem2cc[7:0]};
+                        2'b01: dat_cc2cpu = (dat_mem2cc[15]==1'b0) ? {{24{1'b0}},dat_mem2cc[15:8]}   : {{24{1'b1}},dat_mem2cc[15:8]};
+                        2'b10: dat_cc2cpu = (dat_mem2cc[23]==1'b0) ? {{24{1'b0}},dat_mem2cc[23:16]}  : {{24{1'b1}},dat_mem2cc[23:16]};
+                        2'b11: dat_cc2cpu = (dat_mem2cc[31]==1'b0) ? {{24{1'b0}},dat_mem2cc[31:24]}  : {{24{1'b1}},dat_mem2cc[31:24]};
+                        endcase
                 else
                 begin
                     writeData   = dat_cpu2cc;

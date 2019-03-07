@@ -36,6 +36,8 @@ reg                         req_cpu2cc;
 reg     [ADR_WIDTH-1:0]     adr_cpu2cc;
 reg     [DATA_WIDTH-1:0]    dat_cpu2cc;
 reg                         rdwr_cpu2cc;
+reg                         lb_cpu2cc;
+reg                         lbu_cpu2cc;
 wire                        ack_cc2cpu;
 wire    [DATA_WIDTH-1:0]    dat_cc2cpu;
 
@@ -56,28 +58,40 @@ always #5 clk=~clk;
 initial
 begin
     
-    clk         = 0;
-    rst         = 1'b1;
-    @(posedge clk);
-    rst         <= 1'b0;
-    
     #100
+    
+    clk         <= 0;
+    rst          = 1'b1;
+    req_cpu2cc <= 1'b0;
+    ack_mem2cc <= 1'b0;
+    rdwr_cpu2cc<= 1'b0;
+    dat_cpu2cc <= {32{1'b0}};
+    adr_cpu2cc <= {32{1'b0}};
+    dat_mem2cc <= {32{1'b0}};
+    lb_cpu2cc  <= 1'b0;
+    lbu_cpu2cc <= 1'b0;
+    
+    repeat(42)@(negedge clk);
+    
+    rst         <= 1'b0;
+    repeat(512)@(negedge clk);  
     
     //one: read miss 0way
     @(posedge clk);
     adr_cpu2cc  <= 32'b11111111000001111011110100001000;
     rdwr_cpu2cc <= 1'b0;
     req_cpu2cc  <= 1'b1;
-    repeat(3) @(posedge clk);
+    lb_cpu2cc   <= 1'b1;
+    repeat(2) @(posedge clk);
     repeat(4)
     begin
         ack_mem2cc  <= 1'b1;
         dat_mem2cc  <= {32{1'b1}};
-        @(posedge clk);     
-        ack_mem2cc <= 1'b0;
         @(posedge clk); 
     end
+    ack_mem2cc <= 1'b0;
     req_cpu2cc <= 1'b0;
+    lb_cpu2cc  <= 1'b0;
     
     repeat(2)@(posedge clk);
     
@@ -86,15 +100,14 @@ begin
     adr_cpu2cc  <= 32'b10100101010101010010110100001000;
     rdwr_cpu2cc <= 1'b0;
     req_cpu2cc  <= 1'b1;
-    repeat(3) @(posedge clk);
+    repeat(2) @(posedge clk);
     repeat(4)
     begin
         ack_mem2cc  <= 1'b1;
         dat_mem2cc  <= {32{1'b1}};
-        @(posedge clk);     
-        ack_mem2cc <= 1'b0;
         @(posedge clk); 
     end
+    ack_mem2cc <= 1'b0;
     req_cpu2cc <= 1'b0;
     
     repeat(2)@(posedge clk);
@@ -104,15 +117,14 @@ begin
     adr_cpu2cc  <= 32'b11010101000000001010110100001000;
     rdwr_cpu2cc <= 1'b0;
     req_cpu2cc  <= 1'b1;
-    repeat(3) @(posedge clk);
+    repeat(2) @(posedge clk);
     repeat(4)
     begin
         ack_mem2cc  <= 1'b1;
         dat_mem2cc  <= {32{1'b1}};
         @(posedge clk);     
-        ack_mem2cc <= 1'b0;
-        @(posedge clk); 
     end
+    ack_mem2cc <= 1'b0;
     req_cpu2cc <= 1'b0;
     
     repeat(2)@(posedge clk);
@@ -122,19 +134,18 @@ begin
     adr_cpu2cc  <= 32'b11111111111111111111110100001000;
     rdwr_cpu2cc <= 1'b0;
     req_cpu2cc  <= 1'b1;
-    repeat(3) @(posedge clk);
+    repeat(2) @(posedge clk);
     repeat(4)
     begin
         ack_mem2cc  <= 1'b1;
         dat_mem2cc  <= {32{1'b1}};
         @(posedge clk);     
-        ack_mem2cc <= 1'b0;
-        @(posedge clk); 
     end
+    ack_mem2cc <= 1'b0;
     req_cpu2cc <= 1'b0;
     
     repeat(2)@(posedge clk);
-        
+     
     //five: read hit 0way
     @(posedge clk);
     adr_cpu2cc  <= 32'b11111111000001111011110100001000;
@@ -171,15 +182,14 @@ begin
     rdwr_cpu2cc <= 1'b1;
     req_cpu2cc  <= 1'b1;
     dat_cpu2cc  <= 32'b10101010101010101010101010101010;
-    repeat(3) @(posedge clk);
+    repeat(2) @(posedge clk);
     repeat(4)
     begin
         ack_mem2cc  <= 1'b1;
         dat_mem2cc  <= {32{1'b1}};
         @(posedge clk);     
-        ack_mem2cc <= 1'b0;
-        @(posedge clk); 
     end
+    ack_mem2cc <= 1'b0;
     req_cpu2cc <= 1'b0;
     
     repeat(2)@(posedge clk);
@@ -200,17 +210,40 @@ begin
     adr_cpu2cc  <= 32'b0111010100000101010110100001000;
     rdwr_cpu2cc <= 1'b0;
     req_cpu2cc  <= 1'b1;
-    repeat(3) @(posedge clk);
+    repeat(2) @(posedge clk);
     repeat(4)
     begin
         ack_mem2cc  <= 1'b1;
         dat_mem2cc  <= {32{1'b1}};
-        @(posedge clk);     
-        ack_mem2cc <= 1'b0;
-        @(posedge clk); 
+        @(posedge clk);    
     end
+    ack_mem2cc <= 1'b0;
     req_cpu2cc <= 1'b0;
     
+    repeat(2)@(posedge clk);
+   
+    //byte_request signed 
+    @(posedge clk);
+    lb_cpu2cc   <= 1'b1;
+    adr_cpu2cc  <= 32'b11111111000001111011110100001001;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
+    lb_cpu2cc  <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+    
+    //byte_request unsigned
+    @(posedge clk);
+    lbu_cpu2cc   <= 1'b1;
+    adr_cpu2cc  <= 32'b11111111000001111011110100001001;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
+    lbu_cpu2cc <= 1'b0;
+   
     #50
     
     $finish;
@@ -219,6 +252,8 @@ end
  cacheController cacheController0(
                         .clk(clk), 
                         .rst(rst), 
+                        .lb_cpu2cc(lb_cpu2cc),
+                        .lbu_cpu2cc(lbu_cpu2cc),
                         .req_cpu2cc(req_cpu2cc), 
                         .adr_cpu2cc(adr_cpu2cc), 
                         .dat_cpu2cc(dat_cpu2cc),
