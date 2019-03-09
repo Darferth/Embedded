@@ -1,0 +1,1 @@
+Dopo aver installato JRE vai su file-> apri; la fsm si chiama stocazz

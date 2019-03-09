@@ -36,6 +36,8 @@ reg                         req_cpu2cc;
 reg     [ADR_WIDTH-1:0]     adr_cpu2cc;
 reg     [DATA_WIDTH-1:0]    dat_cpu2cc;
 reg                         rdwr_cpu2cc;
+reg                         lb_cpu2cc;
+reg                         lbu_cpu2cc;
 wire                        ack_cc2cpu;
 wire    [DATA_WIDTH-1:0]    dat_cc2cpu;
 
@@ -97,12 +99,15 @@ begin
     dat_cpu2cc <= {32{1'b0}};
     adr_cpu2cc <= {32{1'b0}};
     dat_mem2cc <= {32{1'b0}};
+    lbu_cpu2cc <= 1'b0;
+    lb_cpu2cc  <= 1'b0;
     repeat(42)@(negedge clk);
     
     rst         <= 1'b0;
     repeat(512)@(negedge clk);
     
-    
+    lbu_cpu2cc <= 1'b0;
+    lb_cpu2cc  <= 1'b0;
     //first req: read miss w.o. 2
     @(posedge clk);
     read_request(32'b11111111000001111011110100001000,
@@ -254,6 +259,50 @@ begin
                   1'b1);
     repeat(3) @(posedge clk);
     req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+    //thirteen: read hit w.o. 3 byte read lbu
+    read_request(32'b10100101010101010010110100001100,
+                 1'b0,
+                 1'b1);
+    lbu_cpu2cc <= 1'b1;
+    repeat(3)@(posedge clk);
+    
+    req_cpu2cc <= 1'b0;
+    lbu_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+    //fourteen: read hit w.o. 3 byte read lb
+    read_request(32'b10100101010101010010110100001100,
+                 1'b0,
+                 1'b1);
+    lb_cpu2cc <= 1'b1;
+    repeat(3)@(posedge clk);
+    
+    req_cpu2cc <= 1'b0;
+    lb_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+    //fifteen: read hit w.o. 3 byte read lbu offset 1
+    read_request(32'b10100101010101010010110100001101,
+                 1'b0,
+                 1'b1);
+    lbu_cpu2cc <= 1'b1;
+    repeat(3)@(posedge clk);
+    
+    req_cpu2cc <= 1'b0;
+    lbu_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+    //sixteen: read hit w.o. 3 byte read lb offset 1
+    read_request(32'b10100101010101010010110100001101,
+                 1'b0,
+                 1'b1);
+    lb_cpu2cc <= 1'b1;
+    repeat(3)@(posedge clk);
+    
+    req_cpu2cc <= 1'b0;
+    lb_cpu2cc <= 1'b0;
     #50
     
     $finish;
@@ -266,6 +315,8 @@ end
                         .adr_cpu2cc(adr_cpu2cc), 
                         .dat_cpu2cc(dat_cpu2cc),
                         .rdwr_cpu2cc(rdwr_cpu2cc),
+                        .lb_cpu2cc(lb_cpu2cc),
+                        .lbu_cpu2cc(lbu_cpu2cc),
                         .ack_cc2cpu(ack_cc2cpu), 
                         .dat_cc2cpu(dat_cc2cpu), 
                         .req_cc2mem(req_cc2mem), 
