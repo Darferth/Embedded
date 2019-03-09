@@ -55,13 +55,7 @@ module cacheController
     input                        ack_mem2cc,
     input      [WORD_WIDTH-1:0]  dat_mem2cc,
     output reg                   req_cc2mem,
-    output reg [ADR_WIDTH-1:0]   adr_cc2mem,
-    
-    // MSHR
-    //-------------------------//
-    output reg  [WORD_WIDTH-1:0]         dat_mem2mshr,
-    output reg  [DATAMEM_WIDTH-1:0]      dat_cc2mshr,
-    output wire [WORD_OFFSET_WIDTH-1:0]  word_mem2mshr
+    output reg [ADR_WIDTH-1:0]   adr_cc2mem
     
 );
 
@@ -97,7 +91,10 @@ localparam  IDLE=3'b000,
             HIT=3'b010, 
             REFILL_BLOCKED=3'b011, 
             REFILL=3'b100;
-
+            
+localparam INDEX_CC2MSHR   = 0;
+localparam INDEX_MEM2MSHR  = 1;
+ 
  /*
 * Tag memory layout
 *            +----------------------------------------------------------------------------------------+
@@ -141,6 +138,8 @@ reg                             fetch_line;
 reg [TAGMEM_WIDTH-1:0]          tagMem          [CACHE_LINES-1:0];
 reg [DATAMEM_WIDTH-1:0]         dataMem         [(WAY_NUM*CACHE_LINES)-1:0];
 reg [(LRU_WIDTH*WAY_NUM)-1:0]   lruMem          [CACHE_LINES-1:0];
+
+reg [DATAMEM_WIDTH-1:0]         mshr            [1:0];
 
 reg [LRU_WIDTH-1:0]             lru_next        [WAY_NUM-1:0];
 reg [(LRU_WIDTH*WAY_NUM)-1:0]   lru_read;
@@ -189,7 +188,6 @@ wire [TAG_WIDTH-1:0]            tag_way3;
 
 wire [INDEX_WAY-1:0]            data_index;
 
-wire [BYTE_WIDTH-1:0]           byte_read;
 wire [WORD_WIDTH-1:0]           word0_read;
 wire [WORD_WIDTH-1:0]           word1_read;
 wire [WORD_WIDTH-1:0]           word2_read;
@@ -255,8 +253,6 @@ assign way_hit       = (hit_way0==1'b1) ? 2'b00
                      : (hit_way3==1'b1) ? 2'b11 
                      : lru_way; 
 
-assign word_mem2mshr = cnt_fetch;
-
 assign word0_read    = readData[31:0];
 assign word1_read    = readData[63:32];
 assign word2_read    = readData[95:64];
@@ -293,6 +289,7 @@ initial
 begin
 
     write_lru = 2'b00;
+    
 //    $readmemb("C:/lru_mem.txt",lruMem);
 //    $readmemb("C:/data_mem.txt",dataMem);
 //    $readmemb("C:/tag_mem.txt",tagMem);
@@ -365,9 +362,7 @@ begin
     fetch_line      = 1'b0;
     req_cc2mem      = 1'b0;
     adr_cc2mem      = {ADR_WIDTH{1'b0}};
-    dat_cc2mshr     = {DATAMEM_WIDTH{1'b0}};
     writeData       = {WORD_WIDTH{1'b0}};
-    dat_mem2mshr    = {WORD_WIDTH{1'b0}};
     writeTag        = {TAG_WIDTH{1'b0}};
     write_lru       = 2'b00;
     lru_value       = 2'b00;
@@ -460,13 +455,21 @@ begin
         begin
             
             //Deload
-            dat_cc2mshr    = readData;
+            mshr[INDEX_CC2MSHR] = readData;
         
             if(ack_mem2cc == 1'b1)
             begin
                 
                 fetch_line      = 1'b1;
-                dat_mem2mshr    = dat_mem2cc;
+                
+                //Write mshr
+                case(word_offset)
+                2'b00: mshr[INDEX_MEM2MSHR][31 : 0]     = dat_mem2cc;
+                2'b01: mshr[INDEX_MEM2MSHR][63 : 32]    = dat_mem2cc;
+                2'b10: mshr[INDEX_MEM2MSHR][95 : 64]    = dat_mem2cc;
+                2'b11: mshr[INDEX_MEM2MSHR][127 : 96]   = dat_mem2cc;
+                endcase
+                
                 cnt_fetch_next  = cnt_fetch + 2'b01;
                 
                 writeData       = dat_mem2cc;
@@ -514,7 +517,15 @@ begin
                 if(ack_mem2cc == 1'b1)
                 begin
                     fetch_line      = 1'b1;
-                    dat_mem2mshr    = dat_mem2cc;
+                    
+                    //Write mshr
+                    case(word_offset)
+                    2'b00: mshr[INDEX_MEM2MSHR][31 : 0]     = dat_mem2cc;
+                    2'b01: mshr[INDEX_MEM2MSHR][63 : 32]    = dat_mem2cc;
+                    2'b10: mshr[INDEX_MEM2MSHR][95 : 64]    = dat_mem2cc;
+                    2'b11: mshr[INDEX_MEM2MSHR][127 : 96]   = dat_mem2cc;
+                    endcase
+                    
                     cnt_fetch_next  = cnt_fetch + 2'b01;
                     writeData       = dat_mem2cc;
                     we_data         = 1'b1;
