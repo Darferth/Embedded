@@ -47,10 +47,6 @@ reg     [DATA_WIDTH-1:0]    dat_mem2cc;
 wire                        req_cc2mem;
 wire    [ADR_WIDTH-1:0]     adr_cc2mem;
 
-        //MSHR SIGNALS
-wire    [DATA_WIDTH-1:0]    dat_mem2mshr;
-wire    [WORD_OFFSET-1:0]   word_mem2mshr;
-wire    [DATAMEM_WIDTH-1:0]    dat_cc2mshr;
 
 
 always #5 clk=~clk;
@@ -322,10 +318,7 @@ end
                         .req_cc2mem(req_cc2mem), 
                         .adr_cc2mem(adr_cc2mem), 
                         .ack_mem2cc(ack_mem2cc),
-                        .dat_mem2cc(dat_mem2cc),
-                        .dat_mem2mshr(dat_mem2mshr), 
-                        .word_mem2mshr(word_mem2mshr), 
-                        .dat_cc2mshr(dat_cc2mshr)
+                        .dat_mem2cc(dat_mem2cc)
                        );
 
 endmodule
