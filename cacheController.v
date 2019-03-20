@@ -289,6 +289,8 @@ initial
 begin
 
     write_lru = 2'b00;
+    mshr[0]   = {128{1'b0}}; 
+    mshr[1]   = {128{1'b0}}; 
     
 //    $readmemb("C:/lru_mem.txt",lruMem);
 //    $readmemb("C:/data_mem.txt",dataMem);
@@ -456,6 +458,7 @@ begin
             
             //Deload
             mshr[INDEX_CC2MSHR] = readData;
+            adr_cc2mem          = adr_cpu2cc;
         
             if(ack_mem2cc == 1'b1)
             begin
