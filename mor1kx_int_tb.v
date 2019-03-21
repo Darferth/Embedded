@@ -152,7 +152,7 @@ task write_request;
            $display("=====\n Sent ack_cc2cpu, WRITE request HIT  \n=====");
            req_cpu2cc <= 1'b0; 
     
-    end_time    <= $time - (start_time + wait_time);
+    end_time    = $time - start_time;
     $display("Took %d cycles for WRITE operation", end_time/10);
     @(posedge clk);
     ack_mem2cc  <= 1'b0;
