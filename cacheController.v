@@ -210,10 +210,10 @@ assign word_offset   = (fetch_line==1'b0) ? adr_cpu2cc[ADR_WORD_OFFSET_END : ADR
 assign byte_offset   = adr_cpu2cc[ADR_BYTE_OFFSET_END : ADR_BYTE_OFFSET_BEGIN]; //00
 assign data_index    = {index,way};
 
-assign lru_way0     = lru_read[1:0];
-assign lru_way1     = lru_read[3:2];
-assign lru_way2     = lru_read[5:4];
-assign lru_way3     = lru_read[7:6];
+assign lru_way0      = lru_read[1:0];
+assign lru_way1      = lru_read[3:2];
+assign lru_way2      = lru_read[5:4];
+assign lru_way3      = lru_read[7:6];
 
 assign valid_way0    = readTag[22];
 assign valid_way1    = readTag[45];
