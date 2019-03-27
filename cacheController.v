@@ -462,23 +462,30 @@ begin
         
             if(ack_mem2cc == 1'b1)
             begin
-                
+                if (dat_cpu2cc != {32{1'b0}})
+                begin
+                    writeData= dat_cpu2cc;
+                    writeDirty= 1'b1;
+                end
+                else
+                begin
+                    writeData= dat_mem2cc;
+                    writeDirty= 1'b0;
+                end
                 fetch_line      = 1'b1;
                 
                 //Write mshr
                 case(word_offset)
-                2'b00: mshr[INDEX_MEM2MSHR][31 : 0]     = dat_mem2cc;
-                2'b01: mshr[INDEX_MEM2MSHR][63 : 32]    = dat_mem2cc;
-                2'b10: mshr[INDEX_MEM2MSHR][95 : 64]    = dat_mem2cc;
-                2'b11: mshr[INDEX_MEM2MSHR][127 : 96]   = dat_mem2cc;
+                2'b00: mshr[INDEX_MEM2MSHR][31 : 0]     = writeData;
+                2'b01: mshr[INDEX_MEM2MSHR][63 : 32]    = writeData;
+                2'b10: mshr[INDEX_MEM2MSHR][95 : 64]    = writeData;
+                2'b11: mshr[INDEX_MEM2MSHR][127 : 96]   = writeData;
                 endcase
                 
                 cnt_fetch_next  = cnt_fetch + 2'b01;
                 
-                writeData       = dat_mem2cc;
                 we_data         = 1'b1;
                 we_tag          = 1'b1;
-                writeDirty      = 1'b0;
                 writeTag        = tag;
                 
                 // WRITE/HIT MISS HANDLE
@@ -499,11 +506,6 @@ begin
                         2'b10: dat_cc2cpu = (dat_mem2cc[23]==1'b0) ? {{24{1'b0}},dat_mem2cc[23:16]}  : {{24{1'b1}},dat_mem2cc[23:16]};
                         2'b11: dat_cc2cpu = (dat_mem2cc[31]==1'b0) ? {{24{1'b0}},dat_mem2cc[31:24]}  : {{24{1'b1}},dat_mem2cc[31:24]};
                         endcase
-                else
-                begin
-                    writeData   = dat_cpu2cc;
-                    writeDirty  = 1'b1;
-                end
                 
                 ack_cc2cpu      = 1'b1;
                 
