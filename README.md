@@ -1,6 +1,5 @@
 # Embedded System: Cache Design
 
----
 
 - Dario Ferrari - 900275
 - Andrea Mazzeo - 895579
