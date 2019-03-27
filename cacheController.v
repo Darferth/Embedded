@@ -197,6 +197,7 @@ wire [BYTE_WIDTH-1:0]           byte0_read;
 wire [BYTE_WIDTH-1:0]           byte1_read;
 wire [BYTE_WIDTH-1:0]           byte2_read;
 wire [BYTE_WIDTH-1:0]           byte3_read;
+wire                            read_op;
 
 integer i, j;
 
@@ -281,6 +282,7 @@ assign byte3_read    = (word_offset==2'b00) ? word0_read[31:24]
                      : (word_offset==2'b10) ? word2_read[31:24]
                      : (word_offset==2'b11) ? word3_read[31:24]
                      : {WORD_WIDTH{1'b0}};
+assign read_op      = rdwr_cpu2cc & req_cpu2cc;
                      
 //---------------------------------------------------------//
 // INITIAL BLOCK
@@ -291,10 +293,6 @@ begin
     write_lru = 2'b00;
     mshr[0]   = {128{1'b0}}; 
     mshr[1]   = {128{1'b0}}; 
-    
-//    $readmemb("C:/lru_mem.txt",lruMem);
-//    $readmemb("C:/data_mem.txt",dataMem);
-//    $readmemb("C:/tag_mem.txt",tagMem);
           
 end
 
@@ -462,7 +460,7 @@ begin
         
             if(ack_mem2cc == 1'b1)
             begin
-                if (dat_cpu2cc != {32{1'b0}})
+                if (read_op)
                 begin
                     writeData   = dat_cpu2cc;
                     writeDirty  = 1'b1;
