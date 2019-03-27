@@ -1,3 +1,2 @@
-# Embedded
-Embedded project
+# Embedded System: Cache Design
 This is the project of a Cache Controller which is MSI compliant, written in verilog. See the Wiki for details 
