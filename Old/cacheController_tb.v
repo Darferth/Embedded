@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 22.12.2018 21:41:59
+// Create Date: 05.02.2019 17:20:57
 // Design Name: 
-// Module Name: cacheController_tb
+// Module Name: 4_way_tb
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -18,200 +18,247 @@
 // Additional Comments:
 // 
 //////////////////////////////////////////////////////////////////////////////////
+module cacheController_tb
+#(
+    parameter ADR_WIDTH     =   32,
+    parameter DATA_WIDTH    =   32,
+    parameter WORD_OFFSET   =    2,
+    parameter DATAMEM_WIDTH =   128
+)
+();
 
+        //CONTROL SIGNALS
+reg                         clk;
+reg                         rst;
 
-module cacheController_tb();
+        //CPU SIGNALS
+reg                         req_cpu2cc;
+reg     [ADR_WIDTH-1:0]     adr_cpu2cc;
+reg     [DATA_WIDTH-1:0]    dat_cpu2cc;
+reg                         rdwr_cpu2cc;
+reg                         lb_cpu2cc;
+reg                         lbu_cpu2cc;
+wire                        ack_cc2cpu;
+wire    [DATA_WIDTH-1:0]    dat_cc2cpu;
+
+        //MEM SIGNALS
+reg                         ack_mem2cc;
+reg     [DATA_WIDTH-1:0]    dat_mem2cc;
+wire                        req_cc2mem;
+wire    [ADR_WIDTH-1:0]     adr_cc2mem;
+
+always #5 clk=~clk;
+
+initial
+begin
     
-    reg clk;
-    reg rst;
-    wire [1:0] state_test;
-    wire [1:0] state_next_test;
-    reg req_cpu_i;
-    reg adr_cpu_i;
-    reg dat_cpu_i;
-    reg we_cpu_i;
-    reg dat_mem_i;
-    reg ack_mem_i;
-    reg cc_hit_i;
-    reg cc_dat_i;
-    reg cc_valid_i;
-    reg adr_mshr_load_i;
-    reg dat_mshr_load_i;
-    reg adr_mshr_deload_i;
-    reg dat_mshr_deload_i;
-    reg lru;
-    reg free;
+    #100
     
-    wire dat_cpu_o;
-    wire ack_cpu_o;
-    wire err_cpu_o;
-    wire cyc_m2s;
-    wire we_m2s;
-    wire adr_m2s;
-    wire dat_m2s;
-    wire cc_we_o;
-    wire cc_adr_o;
-    wire cc_dat_o;
-    wire adr_mshr_load_o;
-    wire dat_mshr_load_o;
-    wire adr_mshr_deload_o;
-    wire dat_mshr_deload_o;
+    clk         <= 0;
+    rst          = 1'b1;
+    req_cpu2cc <= 1'b0;
+    ack_mem2cc <= 1'b0;
+    rdwr_cpu2cc<= 1'b0;
+    dat_cpu2cc <= {32{1'b0}};
+    adr_cpu2cc <= {32{1'b0}};
+    dat_mem2cc <= {32{1'b0}};
+    lb_cpu2cc  <= 1'b0;
+    lbu_cpu2cc <= 1'b0;
     
+    repeat(42)@(negedge clk);
     
-    always #10 clk=~clk;
+    rst         <= 1'b0;
+    repeat(512)@(negedge clk);  
     
-    initial
+    //one: read miss 0way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b11111111000001111011110100001000;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    lb_cpu2cc   <= 1'b1;
+    repeat(2) @(posedge clk);
+    repeat(4)
     begin
-        clk<=0;
-        rst=1;
-        free=1'b1;
-        repeat(5) @(posedge clk);
-        rst<=0;
-        repeat(5) @(posedge clk);
-        */
-        // WRITE MISS
-        /*
-        #1
-        req_cpu_i = 1'b1;
-        adr_cpu_i = 1'b1;
-        dat_cpu_i = 1'b0;
-        we_cpu_i = 1'b1;
-        #2
-        cc_hit_i = 1'b0;
-        cc_valid_i = 1'b0;
-        @(posedge clk);
-        req_cpu_i = 1'b0;
-        #2
-        dat_mem_i = 1'b0;
-        ack_mem_i = 1'b1;
-        */
-        
-        // READ MISS
-        /*
-        #1
-        req_cpu_i = 1'b1;
-        adr_cpu_i = 1'b1;
-        we_cpu_i = 1'b0;
-        #2
-        cc_hit_i = 1'b0;
-        cc_valid_i = 1'b0;
-        @(posedge clk);
-        req_cpu_i = 1'b0;
-        #2
-        dat_mem_i = 1'b0;
-        ack_mem_i = 1'b1;
-        */
-        
-        // READ HIT
-        /*
-        #1
-        req_cpu_i = 1'b1;
-        adr_cpu_i = 1'b0;
-        we_cpu_i = 1'b0;
-        #2
-        cc_hit_i = 1'b1;
-        cc_valid_i = 1'b1;
-        cc_dat_i = 1'b1;
-        @(posedge clk);
-        req_cpu_i = 1'b0;
-        */
-        
-        //WRITE HIT
-        /*
-        #1
-        req_cpu_i = 1'b1;
-        adr_cpu_i = 1'b0;
-        dat_cpu_i = 1'b1;
-        we_cpu_i = 1'b1;
-        #2
-        cc_hit_i = 1'b1;
-        cc_valid_i = 1'b1;
-        @(posedge clk);
-        req_cpu_i = 1'b0;
-        */
-        
-        //READ MISS REPLACE
-        
-        /*
-        #1
-        req_cpu_i = 1'b1;
-        adr_cpu_i = 1'b0;
-        we_cpu_i = 1'b0;
-        #2
-        cc_hit_i = 1'b0;
-        cc_valid_i = 1'b0;
-        free=1'b0;
-        lru_adr=1'b1;
-        #2
-        adr_mshr_deload_i=1'b1;
-        dat_mshr_deload_i=1'b1;
-        dat_mem_i=1'b1;
-        adr_mshr_load_i=1'b1;
-        dat_mshr_load_i=1'b1;
-        repeat(20) @(posedge clk);
-        req_cpu_i = 1'b0;
-        
-        */
-        
-        //WRITE MISS REPLACE
-        
-        /*
-        
-        #1
-        req_cpu_i = 1'b1;
-        adr_cpu_i = 1'b0;
-        we_cpu_i = 1'b1;
-        dat_cpu_i = 1'b0;
-        #2
-        cc_hit_i = 1'b0;
-        cc_valid_i = 1'b0;
-        free=1'b0;
-        lru_adr=1'b1;
-        #2
-        adr_mshr_deload_i=1'b1;
-        dat_mshr_deload_i=1'b1;
-        dat_mem_i=1'b1;
-        adr_mshr_load_i=1'b1;
-        dat_mshr_load_i=1'b1;
-        repeat(20) @(posedge clk);
-        req_cpu_i = 1'b0;
-        
-        
-        $finish;
-        
+        ack_mem2cc  <= 1'b1;
+        dat_mem2cc  <= {32{1'b1}};
+        @(posedge clk); 
     end
+    ack_mem2cc <= 1'b0;
+    req_cpu2cc <= 1'b0;
+    lb_cpu2cc  <= 1'b0;
     
-    cacheController cacheController (.clk(clk),
-                                    .rst(rst),
-                                    .state_test(state_test),
-                                    .state_next_test(state_next_test),
-                                    .req_cpu_i(req_cpu_i),
-                                    .adr_cpu_i(adr_cpu_i),
-                                    .dat_cpu_i(dat_cpu_i),
-                                    .we_cpu_i(we_cpu_i),
-                                    .dat_mem_i(dat_mem_i),
-                                    .ack_mem_i(ack_mem_i),
-                                    .cc_hit_i(cc_hit_i),
-                                    .cc_dat_i(cc_dat_i),
-                                    .cc_valid_i(cc_valid_i),
-                                    .adr_mshr_load_i(adr_mshr_load_i),
-                                    .dat_mshr_load_i(dat_mshr_load_i),
-                                    .adr_mshr_deload_i(adr_mshr_deload_i),
-                                    .dat_mshr_deload_i(dat_mshr_deload_i),
-                                    .lru(lru),
-                                    .free(free),
-                                    .dat_cpu_o(dat_cpu_o),
-                                    .ack_cpu_o(ack_cpu_o),
-                                    .err_cpu_o(err_cpu_o),
-                                    .cyc_m2s(cyc_m2s),
-                                    .we_m2s(we_m2s),
-                                    .adr_m2s(adr_m2s),
-                                    .dat_m2s(dat_m2s),
-                                    .cc_we_o(cc_we_o),
-                                    .cc_adr_o(cc_adr_o),
-                                    .cc_dat_o(cc_dat_o),
-                                    .adr_mshr_load_o(adr_mshr_load_o),
-                                    .dat_mshr_load_o(dat_mshr_load_o),
-                                    .adr_mshr_deload_o(adr_mshr_deload_o),
-                                    .dat_mshr_deload_o(dat_mshr_deload_o));  
+    repeat(2)@(posedge clk);
+    
+    //two: read miss 1way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b10100101010101010010110100001000;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    repeat(2) @(posedge clk);
+    repeat(4)
+    begin
+        ack_mem2cc  <= 1'b1;
+        dat_mem2cc  <= {32{1'b1}};
+        @(posedge clk); 
+    end
+    ack_mem2cc <= 1'b0;
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+        
+    //three: read miss 2way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b11010101000000001010110100001000;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    repeat(2) @(posedge clk);
+    repeat(4)
+    begin
+        ack_mem2cc  <= 1'b1;
+        dat_mem2cc  <= {32{1'b1}};
+        @(posedge clk);     
+    end
+    ack_mem2cc <= 1'b0;
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+        
+    //four: read miss 3way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b11111111111111111111110100001000;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    repeat(2) @(posedge clk);
+    repeat(4)
+    begin
+        ack_mem2cc  <= 1'b1;
+        dat_mem2cc  <= {32{1'b1}};
+        @(posedge clk);     
+    end
+    ack_mem2cc <= 1'b0;
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+     
+    //five: read hit 0way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b11111111000001111011110100001000;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+    
+    //six: write hit 3way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b11111111111111111111110100001000;
+    rdwr_cpu2cc <= 1'b1;
+    req_cpu2cc  <= 1'b1;
+    dat_cpu2cc  <= 32'b10101010100010101010101010100100; 
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+    
+    //seven: read hit 2way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b11010101000000001010110100001000;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+    
+    //eight: write miss 1way deload
+    adr_cpu2cc  <= 32'b01011111010101111110110100001000;
+    rdwr_cpu2cc <= 1'b1;
+    req_cpu2cc  <= 1'b1;
+    dat_cpu2cc  <= 32'b10101010101010101010101010101010;
+    repeat(2) @(posedge clk);
+    repeat(4)
+    begin
+        ack_mem2cc  <= 1'b1;
+        dat_mem2cc  <= {32{1'b1}};
+        @(posedge clk);     
+    end
+    ack_mem2cc <= 1'b0;
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+        
+    //nine: write hit 0way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b11111111000001111011110100001000;
+    rdwr_cpu2cc <= 1'b1;
+    dat_cpu2cc  <= 32'b11011101110111011101110111011101;
+    req_cpu2cc  <= 1'b1;
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+          
+    //ten: read miss deload 3way
+    @(posedge clk);
+    adr_cpu2cc  <= 32'b0111010100000101010110100001000;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    repeat(2) @(posedge clk);
+    repeat(4)
+    begin
+        ack_mem2cc  <= 1'b1;
+        dat_mem2cc  <= {32{1'b1}};
+        @(posedge clk);    
+    end
+    ack_mem2cc <= 1'b0;
+    req_cpu2cc <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+   
+    //byte_request signed 
+    @(posedge clk);
+    lb_cpu2cc   <= 1'b1;
+    adr_cpu2cc  <= 32'b11111111000001111011110100001001;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
+    lb_cpu2cc  <= 1'b0;
+    
+    repeat(2)@(posedge clk);
+    
+    //byte_request unsigned
+    @(posedge clk);
+    lbu_cpu2cc   <= 1'b1;
+    adr_cpu2cc  <= 32'b11111111000001111011110100001001;
+    rdwr_cpu2cc <= 1'b0;
+    req_cpu2cc  <= 1'b1;
+    repeat(3) @(posedge clk);
+    req_cpu2cc <= 1'b0;
+    lbu_cpu2cc <= 1'b0;
+   
+    #50
+    
+    $finish;
+end
+
+ cacheController cacheController0(
+                        .clk(clk), 
+                        .rst(rst), 
+                        .lb_cpu2cc(lb_cpu2cc),
+                        .lbu_cpu2cc(lbu_cpu2cc),
+                        .req_cpu2cc(req_cpu2cc), 
+                        .adr_cpu2cc(adr_cpu2cc), 
+                        .dat_cpu2cc(dat_cpu2cc),
+                        .rdwr_cpu2cc(rdwr_cpu2cc),
+                        .ack_cc2cpu(ack_cc2cpu), 
+                        .dat_cc2cpu(dat_cc2cpu), 
+                        .req_cc2mem(req_cc2mem), 
+                        .adr_cc2mem(adr_cc2mem), 
+                        .ack_mem2cc(ack_mem2cc),
+                        .dat_mem2cc(dat_mem2cc)
+                       );
+
 endmodule
+

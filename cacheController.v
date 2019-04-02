@@ -1,23 +1,12 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 02/01/2019 12:41:28 PM
-// Design Name: 
-// Module Name: cacheController
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
+
+//--------------------------------------------------------------//
+// EMBEDDED SYSTEM 1 PROJECT - CACHE DESIGN
+//
+// Author: Dario Ferrari - Andrea Mazzeo
+// Module: cacheController 
+// Description: verilog description for cache controller
+//--------------------------------------------------------------//
 
 module cacheController
 #(
@@ -68,7 +57,6 @@ localparam LRU_WIDTH             = 2;
 localparam TAGWAY_WIDTH          = VALID_WIDTH+DIRTY_WIDTH+TAG_WIDTH;
 localparam TAGMEM_WIDTH          = TAGWAY_WIDTH*WAY_NUM+LRU_WIDTH;
 localparam BYTE_WIDTH            = 8;
-localparam INDEX_WAY             = INDEX_WIDTH+2;
 
 // ADR OFFSET
 localparam LRU_BEGIN             = 93;
@@ -94,7 +82,8 @@ localparam  IDLE=3'b000,
             
 localparam INDEX_CC2MSHR   = 0;
 localparam INDEX_MEM2MSHR  = 1;
- 
+localparam INDEX_WAY       = INDEX_WIDTH+2;
+
  /*
 * Tag memory layout
 *            +----------------------------------------------------------------------------------------+
@@ -282,6 +271,7 @@ assign byte3_read    = (word_offset==2'b00) ? word0_read[31:24]
                      : (word_offset==2'b10) ? word2_read[31:24]
                      : (word_offset==2'b11) ? word3_read[31:24]
                      : {WORD_WIDTH{1'b0}};
+                     
 assign read_op      = rdwr_cpu2cc & req_cpu2cc;
                      
 //---------------------------------------------------------//
@@ -296,6 +286,9 @@ begin
           
 end
 
+//---------------------------------------------------------//
+// SYNCHRONOUS BLOCK
+//---------------------------------------------------------// 
 always@(posedge clk)
 begin
     if(rst)
@@ -348,6 +341,10 @@ begin
     end        
 end
 
+//---------------------------------------------------------//
+// ASYNCHRONOUS BLOCK
+//---------------------------------------------------------// 
+
 always@(*)
 begin
 
@@ -378,44 +375,42 @@ begin
     RESET:
         begin
         if(j<WAY_NUM*CACHE_LINES)
-            init_stage  = 1'b1;
+            init_stage = 1'b1;
         else
-            ss_next     = IDLE;  
+            ss_next = IDLE;  
         end
     IDLE:
         begin
             if(req_cpu2cc == 1'b1)
             begin
-                ss_next     = LOOKUP;
+                ss_next = LOOKUP;
             end
-            
         end
     LOOKUP:
         begin
-            if(hit)
+            if(hit) //HIT REQUEST
             begin
-            
-                ss_next     = HIT;
-                
+                ss_next = HIT;
              end
-             else // MISS REPLACE
+             else // MISS REQUEST -> REPLACE
              begin
-                 ss_next        = REFILL_BLOCKED;
+             
+                 ss_next = REFILL_BLOCKED;
                  
-                 //Forward request toward the memory
+                 // Forward request toward the memory
                  //---------------------------------//
                  req_cc2mem     = 1'b1;
                  adr_cc2mem     = adr_cpu2cc;
                  cnt_fetch_next = word_offset; 
                  
-                 
              end
-             
         end     
     HIT:
         begin
+        
             we_tag      = 1'b1;
             writeTag    = tag;
+            
             if(rdwr_cpu2cc == 1'b0) 
             begin
                 if(lb_cpu2cc == 1'b0 && lbu_cpu2cc == 1'b0 && req_cpu2cc == 1'b1)
@@ -454,7 +449,7 @@ begin
     REFILL_BLOCKED:
         begin
             
-            //Deload
+            // DELOAD
             mshr[INDEX_CC2MSHR] = readData;
             adr_cc2mem          = adr_cpu2cc;
         
@@ -472,7 +467,7 @@ begin
                 end
                 fetch_line      = 1'b1;
                 
-                //Write mshr
+                // Write MSHR
                 case(word_offset)
                 2'b00: mshr[INDEX_MEM2MSHR][31 : 0]     = writeData;
                 2'b01: mshr[INDEX_MEM2MSHR][63 : 32]    = writeData;
@@ -486,7 +481,7 @@ begin
                 we_tag          = 1'b1;
                 writeTag        = tag;
                 
-                // WRITE/HIT MISS HANDLE
+                // WRITE HIT/MISS HANDLE
                 if(rdwr_cpu2cc == 1'b0)
                     if(lb_cpu2cc == 1'b0 && lbu_cpu2cc == 1'b0)
                         dat_cc2cpu = dat_mem2cc;
@@ -507,7 +502,7 @@ begin
                 
                 ack_cc2cpu      = 1'b1;
                 
-                //nuova richiesta    
+                // Next request to the memory 
                 adr_cc2mem      = {adr_cpu2cc[31:4],cnt_fetch_next,2'b00};
                 ss_next         = REFILL;
             
@@ -521,7 +516,7 @@ begin
                 begin
                     fetch_line      = 1'b1;
                     
-                    //Write mshr
+                    // Write MSHR
                     case(word_offset)
                     2'b00: mshr[INDEX_MEM2MSHR][31 : 0]     = dat_mem2cc;
                     2'b01: mshr[INDEX_MEM2MSHR][63 : 32]    = dat_mem2cc;
@@ -545,7 +540,7 @@ begin
         end
     endcase
     
-    
+    // Update LRU
     if(we_tag)
     begin
     

@@ -1,23 +1,13 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 05.02.2019 17:20:57
-// Design Name: 
-// Module Name: 4_way_tb
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
+
+//--------------------------------------------------------------//
+// EMBEDDED SYSTEM 1 PROJECT - CACHE DESIGN                       
+//                                                                
+// Author: Dario Ferrari - Andrea Mazzeo                          
+// Module: mor1kx_int_tb               
+// Description: test bench for cache controller                          
+//--------------------------------------------------------------//
+
 module mor1kx_int_tb
 #(
     parameter ADR_WIDTH     =   32,
@@ -53,6 +43,12 @@ integer                     wait_time,
 
 always #5 clk=~clk;
 
+//----------------------------------------//
+// TASK: REFILL
+// input: - acknowledge signal
+//        - [32 bit] data
+//----------------------------------------//
+
 task refill;
     input ack;
     input [31:0] dat;
@@ -63,6 +59,12 @@ task refill;
     end
 endtask 
 
+//----------------------------------------//
+// TASK: READ_REQUEST
+// input: - [32 bit] address request
+//        - load byte request
+//        - unsigned load byte request
+//----------------------------------------//
 task read_request;
     input [ADR_WIDTH-1:0]  adr;
     input                  lb;
@@ -115,6 +117,12 @@ task read_request;
     end
 endtask
 
+//----------------------------------------//
+// TASK: WRITE_REQUEST
+// input: - [32 bit] address request
+//        - [32 bit] data
+//----------------------------------------//
+
 task write_request;
     input [ADR_WIDTH-1:0]  adr;
     input [DATA_WIDTH-1:0] dat;
@@ -162,9 +170,16 @@ task write_request;
     end
 endtask
 
+//----------------------------------------//
+// INITIAL BLOCK
+//----------------------------------------//
+
 initial
 begin
     #100
+
+    // Initialization
+    //----------------------
     clk        <= 0;
     rst         = 1'b1;
     req_cpu2cc <= 1'b0;
@@ -182,98 +197,120 @@ begin
     
     lbu_cpu2cc <= 1'b0;
     lb_cpu2cc  <= 1'b0;
-    //first req: read miss w.o. 2 way 0
+    
+    // 1: read miss w.o. 2 way 0
+    //----------------------
     @(posedge clk);
     read_request(32'b11111111000001111011110100001000, 1'b0, 1'b0);
     
     repeat(2)@(posedge clk);
     
-    
-    //second req: read miss w.o. 3 way 1
+    // 2: read miss w.o. 3 way 1
+    //----------------------
     @(posedge clk);
     read_request(32'b10100101010101010010110100001100, 1'b0, 1'b0);
     
     repeat(2)@(posedge clk);
         
-    //third req: read miss w.o. 0 way 2
+    // 3: read miss w.o. 0 way 2
+    //----------------------
     @(posedge clk);
     read_request(32'b11010101000000001010110100000000, 1'b0, 1'b0);
    
     repeat(2)@(posedge clk);
         
-    //fourth req: read miss w.o 2 way 3
+    // 4: read miss w.o 2 way 3
+    //----------------------
     @(posedge clk);
     read_request(32'b11111111111111111111110100001000, 1'b0, 1'b0);
     repeat(2)@(posedge clk);
         
-    //five: read hit way 0
+    // 5: read hit way 0
+    //----------------------
     @(posedge clk);
     read_request(32'b11111111000001111011110100000000, 1'b0, 1'b0);
     repeat(2)@(posedge clk);
     
-    //six: write hit way 3
+    // 6: write hit way 3
+    //----------------------
     @(posedge clk);
     write_request(32'b11111111111111111111110100001000,
                   32'b1010101010001010101010101010010);
     
     repeat(2)@(posedge clk);
-    //seven: write hit way 1
+    
+    // 7: write hit way 1
+    //----------------------
     @(posedge clk);
     write_request(32'b10100101010101010010110100001000,
                   32'b10101010100010101010101010100100);
     
     repeat(2)@(posedge clk);
-    //eight: read miss way 2
-
+    
+    // 8: read miss way 2
+    //----------------------
     @(posedge clk);
     read_request(32'b10101111110101010010110100001000, 1'b0, 1'b0);
     
     repeat(2)@(posedge clk);
    
-    //nine: read hit, reads the value written in test 7
+    // 9: read hit, reads the value written in test 7
+    //----------------------
     @(posedge clk);
     read_request(32'b10100101010101010010110100001000, 1'b0, 1'b0);
     
     repeat(2)@(posedge clk);
    
-    //ten: write hit w.o. 0
+    // 10: write hit w.o. 0
+    //----------------------
     @(posedge clk);
     write_request(32'b10100101010101010010110100000000,
                   32'b10101010100010101111111111100100);
  
     repeat(2)@(posedge clk);
 
-    //eleven: write hit w.o. 1
+    // 11: write hit w.o. 1
+    //----------------------
     @(posedge clk);
     write_request(32'b10100101010101010010110100000100,
                   32'b11111111111110101010101010100100);
     
     repeat(2)@(posedge clk);
 
-    //twelve: write hit w.o. 3
+    // 12: write hit w.o. 3
+    //----------------------
     @(posedge clk);
     write_request(32'b10100101010101010010110100001100,
                   32'b10101010111010111010101010110100);
        
     repeat(2)@(posedge clk);
    
-    //thirteen: read hit w.o. 3 byte read lbu
-     read_request(32'b10100101010101010010110100001100, 1'b0, 1'b1);
+    // 13: read hit w.o. 3 byte read lbu
+    //----------------------
+    read_request(32'b10100101010101010010110100001100, 1'b0, 1'b1);
     
     repeat(2)@(posedge clk);
-    //fourteen: read hit w.o. 3 byte read lb
+    
+    // 14: read hit w.o. 3 byte read lb
+    //----------------------
     read_request(32'b10100101010101010010110100001100, 1'b1, 1'b0);
     
     repeat(2)@(posedge clk);
-    //fifteen: read hit w.o. 3 byte read lbu offset 1
+    
+    // 15: read hit w.o. 3 byte read lbu offset 1
+    //----------------------
     read_request(32'b10100101010101010010110100001101, 1'b0, 1'b1);
                  
     repeat(2)@(posedge clk);
-    //sixteen: read hit w.o. 3 byte read lb offset 1
+    
+    // 16: read hit w.o. 3 byte read lb offset 1
+    //----------------------
     read_request(32'b10100101010101010010110100001101, 1'b1, 1'b0);
     
     repeat(2)@(posedge clk);
-    //seventeen: write miss w.o. 0 
+    
+    // 17: write miss w.o. 0 
+    //----------------------
     write_request(32'b11111111110101010010110100000000,
                   32'b10101010111010111010101010110100);
     #50
